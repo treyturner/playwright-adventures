@@ -1,0 +1,20 @@
+{
+  "name": "playwright-adventures-js",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test:smoke": "playwright test tests/smoke",
+    "start:mcp": "ts-node src/mcp/index.ts"
+  },
+  "dependencies": {
+    "playwright": "^1.42.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.42.1",
+    "@types/node": "^20.11.30",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.3"
+  }
+}

@@ -1,0 +1,31 @@
+[project]
+name = "playwright-adventures-py"
+version = "0.1.0"
+description = "Playwright + MCP sidecar"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "playwright>=1.42",
+  "pytest>=8.1",
+  "pytest-playwright-asyncio>=0.3.0",
+  "typing-extensions>=4.10.0",
+  "pydantic>=2.6"
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+warn_redundant_casts = true
+warn_unused_configs = true
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"

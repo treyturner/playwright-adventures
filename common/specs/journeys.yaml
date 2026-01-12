@@ -1,0 +1,45 @@
+- id: login-and-view-dashboard
+  name: Login and View Dashboard
+  description: Basic happy-path login and dashboard visibility journey.
+  preconditions:
+    - User exists in fixture data with valid credentials.
+    - Base application is reachable and renders the login form.
+  steps:
+    - action: navigate
+      target: /login
+      notes: Load the login page and wait for the form to be visible.
+    - action: fill
+      target: form[label="Email"] input[name="email"]
+      data: use fixture user.email
+    - action: fill
+      target: form[label="Password"] input[name="password"]
+      data: use fixture user.password
+    - action: click
+      target: button[type="submit"]
+      notes: Prefer role-based selector button with accessible name "Sign in".
+    - action: assert
+      target: heading level 1 with accessible name matching /dashboard/i
+      notes: Wait for navigation and ensure dashboard heading is visible.
+    - action: assert
+      target: data-testid="account-summary"
+      notes: Validate key dashboard widget renders.
+
+- id: view-account-details
+  name: View Account Details
+  description: Navigate to an account details page from dashboard.
+  preconditions:
+    - Logged in user with at least one account.
+    - Dashboard lists accounts with a stable test id.
+  steps:
+    - action: navigate
+      target: /dashboard
+      notes: Use existing authenticated session or perform login first.
+    - action: click
+      target: data-testid="account-list-item"
+      notes: Click the first account list item using data-testid.
+    - action: assert
+      target: heading level 1 with accessible name matching /account details/i
+      notes: Ensure the account details page renders.
+    - action: assert
+      target: data-testid="transaction-table"
+      notes: Table of recent transactions is visible and populated.
