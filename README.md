@@ -24,7 +24,7 @@ cd py
 uv sync
 uv run playwright install
 uv run pytest
-uv run python -m mcp_server.main
+uv run python -m playwright_adventures.mcp_server
 ```
 
 ## Notes

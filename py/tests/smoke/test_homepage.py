@@ -1,6 +1,6 @@
 from playwright.async_api import Page, expect
-from src.config import BASE_URL
-from src.pages.home_page import HomePage
+from playwright_adventures.config import BASE_URL
+from playwright_adventures.pages.home_page import HomePage
 
 EXPECTED_URL = f"{BASE_URL.rstrip('/')}/"
 

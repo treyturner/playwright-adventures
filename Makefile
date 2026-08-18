@@ -16,6 +16,6 @@ start-mcp-js:
 	cd js && npm run start:mcp
 
 start-mcp-py:
-	cd py && uv run python -m mcp_server.main
+	cd py && uv run python -m playwright_adventures.mcp_server
 
 test-all: test-js test-py

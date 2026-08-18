@@ -7,10 +7,10 @@ import signal
 import sys
 from typing import Any, Awaitable, Callable, Dict
 
+from ..journeys.models import JourneyResult
 from .resources.specs_resource import load_spec_resources
 from .tools.browser_tools import BrowserResult, BrowserSession, BrowserTools
 from .tools.journey_tools import JourneyTools
-from src.journeys.models import JourneyResult
 
 ToolHandler = Callable[[Dict[str, Any] | None], Awaitable[Any]]
 

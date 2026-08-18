@@ -17,9 +17,9 @@ uv run pytest
 
 ## Starting the MCP server
 ```bash
-uv run python -m mcp_server.main
+uv run python -m playwright_adventures.mcp_server
 ```
 
-The server registers browser tools, journey execution, and exposes shared specs from `../common/specs`. Extend `mcp_server/tools` and `mcp_server/resources` to add new capabilities.
+The server registers browser tools, journey execution, and exposes shared specs from `../common/specs`. Extend `src/playwright_adventures/mcp_server/tools` and `src/playwright_adventures/mcp_server/resources` to add new capabilities.
 
 Set `BASE_URL` to point at the application under test (defaults to `http://localhost:3000`), shared across page objects, tests, and MCP tooling.

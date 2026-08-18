@@ -1,7 +1,7 @@
 from typing import Pattern
 
 from playwright.async_api import Page, expect
-from src.config import BASE_URL
+from ..config import BASE_URL
 
 
 class HomePage:

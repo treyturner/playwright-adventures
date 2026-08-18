@@ -22,7 +22,7 @@ SPEC_FILES = [
 
 
 def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
+    return Path(__file__).resolve().parents[5]
 
 
 def load_spec_resources() -> List[SpecResource]:
