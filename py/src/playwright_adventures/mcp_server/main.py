@@ -28,6 +28,9 @@ class McpServer:
         request_id = request.get("id", "unknown")
         params = request.get("params")
 
+        if not isinstance(method, str):
+            return {"id": request_id, "error": {"message": "Missing or invalid method"}}
+
         if method == "resources/list":
             return {
                 "id": request_id,
@@ -86,7 +89,7 @@ async def main() -> None:
 
             try:
                 payload = json.loads(line)
-            except json.JSONDecodeError as exc:  # type: ignore[attr-defined]
+            except json.JSONDecodeError as exc:
                 sys.stdout.write(json.dumps({"id": "unknown", "error": {"message": f"Invalid JSON: {exc}"}}) + "\n")
                 sys.stdout.flush()
                 continue
@@ -105,8 +108,6 @@ def _require(params: Dict[str, Any] | None, key: str) -> Any:
 
 
 def _normalize_result(value: Any) -> Any:
-    if dataclasses.is_dataclass(value):
-        return dataclasses.asdict(value)
     if isinstance(value, JourneyResult):
         return value.model_dump()
     if isinstance(value, BrowserResult):

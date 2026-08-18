@@ -20,7 +20,7 @@ async def login_and_view_dashboard(page: Page, user: TestUser = demo_user) -> Jo
 
 async def view_account_details(page: Page, user: TestUser = demo_user) -> JourneyResult:
     await login_and_view_dashboard(page, user)
-    await page.get_by_test_id("account-list-item").first().click()
+    await page.get_by_test_id("account-list-item").first.click()
     await expect(page.get_by_role("heading", level=1, name=r"(?i)account details")).to_be_visible()
     await expect(page.get_by_test_id("transaction-table")).to_be_visible()
     return JourneyResult(journey_id="view-account-details", success=True, details="Account details rendered")

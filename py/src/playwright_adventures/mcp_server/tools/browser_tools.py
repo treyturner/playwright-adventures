@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from playwright.async_api import Browser, Page, async_playwright
+from playwright.async_api import Browser, Page, Playwright, async_playwright
 from ...config import BASE_URL
 
 
@@ -23,7 +23,7 @@ class BrowserSession:
     def __init__(self) -> None:
         self._browser: Browser | None = None
         self._page: Page | None = None
-        self._playwright = None
+        self._playwright: Playwright | None = None
         self._lock = asyncio.Lock()
 
     async def get_page(self) -> Page:
@@ -31,8 +31,9 @@ class BrowserSession:
             if self._page:
                 return self._page
 
-            self._playwright = await async_playwright().start()
-            self._browser = await self._playwright.chromium.launch(headless=True)
+            playwright = await async_playwright().start()
+            self._playwright = playwright
+            self._browser = await playwright.chromium.launch(headless=True)
             context = await self._browser.new_context(base_url=BASE_URL)
             self._page = await context.new_page()
             return self._page
@@ -59,12 +60,12 @@ class BrowserTools:
     async def browser_navigate(self, url: str) -> BrowserResult:
         page = await self.session.get_page()
         await page.goto(url)
-        return BrowserResult(success=True, message="Navigated", url=page.url())
+        return BrowserResult(success=True, message="Navigated", url=page.url)
 
     async def browser_click(self, selector: str) -> BrowserResult:
         page = await self.session.get_page()
         await page.click(selector)
-        return BrowserResult(success=True, message=f"Clicked {selector}", url=page.url())
+        return BrowserResult(success=True, message=f"Clicked {selector}", url=page.url)
 
     async def browser_fill(self, selector: str, value: str) -> BrowserResult:
         page = await self.session.get_page()
