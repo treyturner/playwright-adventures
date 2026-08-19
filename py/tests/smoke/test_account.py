@@ -1,4 +1,5 @@
 from playwright.async_api import Page
+
 from playwright_adventures.journeys.account_journeys import view_account_details
 from playwright_adventures.journeys.models import demo_user
 

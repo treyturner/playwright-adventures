@@ -8,7 +8,8 @@ from mcp import Client
 from mcp.client.stdio import StdioServerParameters, stdio_client
 from mcp.types import LATEST_PROTOCOL_VERSION, TextResourceContents
 
-from playwright_adventures.journeys.models import JourneyResult, TestUser as JourneyUser
+from playwright_adventures.journeys.models import JourneyResult
+from playwright_adventures.journeys.models import TestUser as JourneyUser
 from playwright_adventures.mcp_server.main import create_mcp_server, spec_resource_uri
 from playwright_adventures.mcp_server.tools.browser_tools import BrowserResult
 

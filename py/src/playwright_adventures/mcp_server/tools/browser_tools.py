@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Optional
 
 from playwright.async_api import Browser, Page, Playwright, async_playwright
+
 from ...config import BASE_URL
 
 
