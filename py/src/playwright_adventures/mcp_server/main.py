@@ -1,129 +1,133 @@
 from __future__ import annotations
 
-import asyncio
-import dataclasses
-import json
-import signal
 import sys
-from typing import Any, Awaitable, Callable, Dict
+from collections.abc import Awaitable, Callable
+from typing import Protocol
 
-from ..journeys.models import JourneyResult
-from .resources.specs_resource import load_spec_resources
+from mcp.server import MCPServer
+
+from ..journeys.models import JourneyResult, TestUser
+from .resources.specs_resource import SpecResource, load_spec_resources
 from .tools.browser_tools import BrowserResult, BrowserSession, BrowserTools
 from .tools.journey_tools import JourneyTools
 
-ToolHandler = Callable[[Dict[str, Any] | None], Awaitable[Any]]
+
+class BrowserToolService(Protocol):
+    async def browser_navigate(self, url: str) -> BrowserResult: ...
+
+    async def browser_click(self, selector: str) -> BrowserResult: ...
+
+    async def browser_fill(self, selector: str, value: str) -> BrowserResult: ...
+
+    async def browser_get_text(self, selector: str) -> BrowserResult: ...
+
+    async def browser_screenshot(self, path: str | None = None) -> BrowserResult: ...
 
 
-class McpServer:
-    def __init__(self) -> None:
-        self.tools: Dict[str, ToolHandler] = {}
-        self.resources = load_spec_resources()
+class JourneyToolService(Protocol):
+    async def run_journey(self, journey_id: str, user: TestUser | None = None) -> JourneyResult: ...
 
-    def register_tool(self, name: str, handler: ToolHandler) -> None:
-        self.tools[name] = handler
 
-    async def handle_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
-        method = request.get("method")
-        request_id = request.get("id", "unknown")
-        params = request.get("params")
+def spec_resource_uri(resource_id: str) -> str:
+    return f"playwright-adventures://specs/{resource_id}"
 
-        if not isinstance(method, str):
-            return {"id": request_id, "error": {"message": "Missing or invalid method"}}
 
-        if method == "resources/list":
-            return {
-                "id": request_id,
-                "result": [
-                    {"id": res.id, "name": res.name, "mimeType": res.mime_type, "path": res.path}
-                    for res in self.resources
-                ],
-            }
+def _spec_reader(content: str) -> Callable[[], Awaitable[str]]:
+    async def read_spec() -> str:
+        return content
 
-        if method == "resources/get":
-            resource_id = (params or {}).get("id")
-            match = next((res for res in self.resources if res.id == resource_id), None)
-            if match is None:
-                return {"id": request_id, "error": {"message": f"Resource not found: {resource_id}"}}
-            return {"id": request_id, "result": match.__dict__}
+    return read_spec
 
-        handler = self.tools.get(method)
-        if handler is None:
-            return {"id": request_id, "error": {"message": f"Unknown method: {method}"}}
 
-        try:
-            result = await handler(params)
-            return {"id": request_id, "result": _normalize_result(result)}
-        except Exception as exc:  # pylint: disable=broad-except
-            return {"id": request_id, "error": {"message": str(exc)}}
+def create_mcp_server(
+    browser_tools: BrowserToolService,
+    journey_tools: JourneyToolService,
+    resources: list[SpecResource] | None = None,
+) -> MCPServer[None]:
+    server: MCPServer[None] = MCPServer(
+        name="playwright-adventures-py",
+        version="0.1.0",
+        description="Typed Playwright browser automation and shared journeys",
+    )
+
+    @server.tool(
+        name="browser.navigate",
+        title="Navigate browser",
+        description="Navigate the managed browser page to a URL",
+        structured_output=True,
+    )
+    async def browser_navigate(url: str) -> BrowserResult:
+        return await browser_tools.browser_navigate(url)
+
+    @server.tool(
+        name="browser.click",
+        title="Click browser element",
+        description="Click an element matching a Playwright selector",
+        structured_output=True,
+    )
+    async def browser_click(selector: str) -> BrowserResult:
+        return await browser_tools.browser_click(selector)
+
+    @server.tool(
+        name="browser.fill",
+        title="Fill browser input",
+        description="Fill an input matching a Playwright selector",
+        structured_output=True,
+    )
+    async def browser_fill(selector: str, value: str) -> BrowserResult:
+        return await browser_tools.browser_fill(selector, value)
+
+    @server.tool(
+        name="browser.getText",
+        title="Read browser text",
+        description="Read text content from an element matching a Playwright selector",
+        structured_output=True,
+    )
+    async def browser_get_text(selector: str) -> BrowserResult:
+        return await browser_tools.browser_get_text(selector)
+
+    @server.tool(
+        name="browser.screenshot",
+        title="Capture browser screenshot",
+        description="Capture a full-page screenshot from the managed browser page",
+        structured_output=True,
+    )
+    async def browser_screenshot(path: str | None = None) -> BrowserResult:
+        return await browser_tools.browser_screenshot(path)
+
+    @server.tool(
+        name="test.runJourney",
+        title="Run browser journey",
+        description="Run one of the predefined browser journeys",
+        structured_output=True,
+    )
+    async def test_run_journey(journeyId: str, user: TestUser | None = None) -> JourneyResult:
+        return await journey_tools.run_journey(journeyId, user)
+
+    for resource in resources if resources is not None else load_spec_resources():
+        server.resource(
+            spec_resource_uri(resource.id),
+            name=resource.id,
+            title=resource.name,
+            description=f"Shared Playwright specification: {resource.name}",
+            mime_type=resource.mime_type,
+        )(_spec_reader(resource.content))
+
+    return server
 
 
 async def main() -> None:
     session = BrowserSession()
-    browser_tools = BrowserTools(session)
-    journey_tools = JourneyTools(session)
-    server = McpServer()
-
-    server.register_tool("browser.navigate", lambda params: browser_tools.browser_navigate(url=_require(params, "url")))
-    server.register_tool("browser.click", lambda params: browser_tools.browser_click(selector=_require(params, "selector")))
-    server.register_tool("browser.fill", lambda params: browser_tools.browser_fill(selector=_require(params, "selector"), value=_require(params, "value")))
-    server.register_tool("browser.getText", lambda params: browser_tools.browser_get_text(selector=_require(params, "selector")))
-    server.register_tool("browser.screenshot", lambda params: browser_tools.browser_screenshot(path=params.get("path") if params else None))
-    server.register_tool("test.runJourney", lambda params: journey_tools.run_journey(journey_id=_require(params, "journeyId"), user=params.get("user") if params else None))
-
-    print("MCP server ready. Send JSON-RPC lines to stdin.", flush=True)
-
-    loop = asyncio.get_running_loop()
-    stop_event = asyncio.Event()
-
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, stop_event.set)
+    server = create_mcp_server(BrowserTools(session), JourneyTools(session))
+    print("Playwright Adventures MCP server running on stdio", file=sys.stderr, flush=True)
 
     try:
-        while not stop_event.is_set():
-            line = await _readline()
-            if line is None:
-                break
-            if line == "":
-                continue
-
-            try:
-                payload = json.loads(line)
-            except json.JSONDecodeError as exc:
-                sys.stdout.write(json.dumps({"id": "unknown", "error": {"message": f"Invalid JSON: {exc}"}}) + "\n")
-                sys.stdout.flush()
-                continue
-
-            response = await server.handle_request(payload)
-            sys.stdout.write(json.dumps(response) + "\n")
-            sys.stdout.flush()
+        await server.run_stdio_async()
     finally:
         await session.close()
 
 
-def _require(params: Dict[str, Any] | None, key: str) -> Any:
-    if params is None or key not in params:
-        raise ValueError(f"Missing required param: {key}")
-    return params[key]
-
-
-def _normalize_result(value: Any) -> Any:
-    if isinstance(value, JourneyResult):
-        return value.model_dump()
-    if isinstance(value, BrowserResult):
-        return dataclasses.asdict(value)
-    return value
-
-
-async def _readline() -> str | None:
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, _sync_readline)
-
-
-def _sync_readline() -> str | None:
-    line = sys.stdin.readline()
-    return line.strip() if line else None
-
-
 if __name__ == "__main__":
+    import asyncio
+
     asyncio.run(main())

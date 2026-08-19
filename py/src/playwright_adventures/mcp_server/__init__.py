@@ -1,1 +1,1 @@
-"""Minimal MCP server wiring for Python sidecar."""
+"""Official MCP SDK server wiring for the Python sidecar."""
