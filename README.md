@@ -7,10 +7,17 @@ Modern browser automation scaffold with TypeScript + Python Playwright stacks, s
 - `js/` — TypeScript Playwright tests, page objects, journeys, and an MCP server.
 - `py/` — Python Playwright tests, page objects, journeys, and an MCP sidecar.
 - `Makefile` — shortcuts for installing deps, running tests, and starting MCP servers.
+- `.github/workflows/ci.yml` — reproducible build, quality, protocol, and optional live smoke checks.
+
+## Toolchains
+
+- Node.js 24.19.0 is pinned in `.node-version`; npm 12.0.2 is pinned through `packageManager`.
+- Python 3.14.7 is pinned in `.python-version`.
+- CI pins uv 0.12.5 and installs dependencies exclusively from the npm and uv lockfiles.
 
 ## Quickstart
 ### JavaScript/TypeScript
-Requires Node.js 20 or newer.
+Use the Node.js and npm versions pinned above.
 
 ```bash
 cd js
@@ -29,6 +36,10 @@ uv run playwright install
 uv run pytest
 uv run python -m playwright_adventures.mcp_server
 ```
+
+## Continuous integration
+
+CI always builds both stacks, runs Python linting and type checks, exercises both MCP protocol suites, and verifies smoke-test discovery. Live browser smoke tests run when the repository variable `BASE_URL` is configured or a `base_url` is supplied to a manual workflow run.
 
 ## Notes
 - Both stacks prefer accessible selectors and `data-testid` anchors (see `common/specs/selectors.md`).
