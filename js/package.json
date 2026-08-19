@@ -2,16 +2,23 @@
   "name": "playwright-adventures-js",
   "version": "0.1.0",
   "private": true,
-  "type": "commonjs",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "test:mcp": "npm run build --silent && node --test dist/tests/mcp/server.test.js",
     "test:smoke": "playwright test tests/smoke",
     "start:mcp": "tsx src/mcp/index.ts"
   },
   "dependencies": {
-    "playwright": "^1.62.1"
+    "@modelcontextprotocol/server": "^2.0.0",
+    "playwright": "^1.62.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@modelcontextprotocol/client": "^2.0.0",
     "@playwright/test": "^1.62.1",
     "@types/node": "^26.2.0",
     "tsx": "^4.23.12",

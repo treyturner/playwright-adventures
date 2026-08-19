@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { HomePage } from '../../src/lib/pages/HomePage';
+import { HomePage } from '../../src/lib/pages/HomePage.js';
 
 const HERO_HEADING = /welcome/i;
 

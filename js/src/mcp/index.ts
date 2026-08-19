@@ -1,100 +1,185 @@
-import readline from 'readline';
-import { BrowserController, createBrowserTools, NavigateParams, ClickParams, FillParams, GetTextParams, ScreenshotParams } from './tools/browserTools';
-import { createJourneyTools, JourneyToolParams } from './tools/journeyTools';
-import { loadSpecResources } from './resources/specsResource';
-import { McpResource, RpcRequest, RpcResponse, ToolDefinition } from './types';
+import { pathToFileURL } from 'node:url';
 
-class McpServer {
-  private readonly tools = new Map<string, ToolDefinition>();
-  private readonly resources: McpResource[] = [];
+import { McpServer, type CallToolResult } from '@modelcontextprotocol/server';
+import { serveStdio } from '@modelcontextprotocol/server/stdio';
+import * as z from 'zod/v4';
 
-  registerTool(tool: ToolDefinition): void {
-    this.tools.set(tool.name, tool);
-  }
+import { loadSpecResources } from './resources/specsResource.js';
+import {
+  BrowserController,
+  createBrowserTools,
+  type BrowserActionResult,
+  type BrowserTools
+} from './tools/browserTools.js';
+import { createJourneyTools, type JourneyToolResult, type JourneyTools } from './tools/journeyTools.js';
+import type { McpResource } from './types.js';
 
-  registerResources(resources: McpResource[]): void {
-    this.resources.push(...resources);
-  }
+const browserActionResultSchema = z.object({
+  success: z.boolean(),
+  message: z.string(),
+  url: z.string().optional(),
+  value: z.string().optional(),
+  screenshotPath: z.string().optional()
+});
 
-  private async handleRequest(request: RpcRequest): Promise<RpcResponse> {
-    const { id, method, params } = request;
+const journeyResultSchema = z.object({
+  journeyId: z.string(),
+  success: z.boolean(),
+  details: z.string().optional()
+});
 
-    if (method === 'resources/list') {
-      return { id, result: this.resources.map(({ id: resourceId, name, mimeType, path }) => ({ id: resourceId, name, mimeType, path })) };
-    }
+const testUserSchema = z.object({
+  email: z.string().email(),
+  password: z.string(),
+  displayName: z.string().optional()
+});
 
-    if (method === 'resources/get') {
-      const resourceId = (params as { id?: string })?.id;
-      const resource = this.resources.find((item) => item.id === resourceId);
-      if (!resource) {
-        return { id, error: { message: `Resource not found: ${resourceId}` } };
-      }
-      return { id, result: resource };
-    }
-
-    const tool = this.tools.get(method);
-    if (!tool) {
-      return { id, error: { message: `Unknown method: ${method}` } };
-    }
-
-    try {
-      const result = await tool.handler(params);
-      return { id, result };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      return { id, error: { message } };
-    }
-  }
-
-  start(): void {
-    const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: false });
-    console.log('MCP server ready. Send JSON-RPC lines like {"id":1,"method":"browser.navigate","params":{"url":"https://example.com"}}');
-
-    rl.on('line', async (line: string) => {
-      const trimmed = line.trim();
-      if (!trimmed) return;
-
-      try {
-        const request = JSON.parse(trimmed) as RpcRequest;
-        const response = await this.handleRequest(request);
-        process.stdout.write(`${JSON.stringify(response)}\n`);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Failed to process request';
-        const fallback: RpcResponse = { id: 'unknown', error: { message } };
-        process.stdout.write(`${JSON.stringify(fallback)}\n`);
-      }
-    });
-  }
+export interface McpServerDependencies {
+  browserTools: BrowserTools;
+  journeyTools: JourneyTools;
+  resources?: McpResource[];
 }
 
-const bootstrap = (): void => {
-  const controller = new BrowserController();
-  const browserTools = createBrowserTools(controller);
-  const journeyTools = createJourneyTools(controller);
-  const server = new McpServer();
+const toToolResult = (result: BrowserActionResult | JourneyToolResult): CallToolResult => ({
+  content: [{ type: 'text', text: JSON.stringify(result) }],
+  structuredContent: { ...result }
+});
 
-  server.registerResources(loadSpecResources());
+export const specResourceUri = (resourceId: string): string =>
+  `playwright-adventures://specs/${resourceId}`;
 
-  const tools: ToolDefinition[] = [
-    { name: 'browser.navigate', description: 'Navigate to a URL', handler: (params) => browserTools.navigate(params as NavigateParams) },
-    { name: 'browser.click', description: 'Click a selector', handler: (params) => browserTools.click(params as ClickParams) },
-    { name: 'browser.fill', description: 'Fill input by selector', handler: (params) => browserTools.fill(params as FillParams) },
-    { name: 'browser.getText', description: 'Read text content for a selector', handler: (params) => browserTools.getText(params as GetTextParams) },
-    { name: 'browser.screenshot', description: 'Capture a screenshot of the current page', handler: (params) => browserTools.screenshot(params as ScreenshotParams) },
-    { name: 'test.runJourney', description: 'Run a predefined journey', handler: (params) => journeyTools.runJourney(params as JourneyToolParams) }
-  ];
+export const createMcpServer = ({
+  browserTools,
+  journeyTools,
+  resources = loadSpecResources()
+}: McpServerDependencies): McpServer => {
+  const server = new McpServer({
+    name: 'playwright-adventures-js',
+    version: '0.1.0'
+  });
 
-  tools.forEach((tool) => server.registerTool(tool));
+  server.registerTool(
+    'browser.navigate',
+    {
+      title: 'Navigate browser',
+      description: 'Navigate the managed browser page to a URL',
+      inputSchema: z.object({ url: z.string().min(1) }),
+      outputSchema: browserActionResultSchema
+    },
+    async (params) => toToolResult(await browserTools.navigate(params))
+  );
 
-  const shutdown = async (): Promise<void> => {
-    await controller.dispose();
-    process.exit(0);
-  };
+  server.registerTool(
+    'browser.click',
+    {
+      title: 'Click browser element',
+      description: 'Click an element matching a Playwright selector',
+      inputSchema: z.object({ selector: z.string().min(1) }),
+      outputSchema: browserActionResultSchema
+    },
+    async (params) => toToolResult(await browserTools.click(params))
+  );
 
-  process.on('SIGINT', shutdown);
-  process.on('SIGTERM', shutdown);
+  server.registerTool(
+    'browser.fill',
+    {
+      title: 'Fill browser input',
+      description: 'Fill an input matching a Playwright selector',
+      inputSchema: z.object({ selector: z.string().min(1), value: z.string() }),
+      outputSchema: browserActionResultSchema
+    },
+    async (params) => toToolResult(await browserTools.fill(params))
+  );
 
-  server.start();
+  server.registerTool(
+    'browser.getText',
+    {
+      title: 'Read browser text',
+      description: 'Read text content from an element matching a Playwright selector',
+      inputSchema: z.object({ selector: z.string().min(1) }),
+      outputSchema: browserActionResultSchema
+    },
+    async (params) => toToolResult(await browserTools.getText(params))
+  );
+
+  server.registerTool(
+    'browser.screenshot',
+    {
+      title: 'Capture browser screenshot',
+      description: 'Capture a full-page screenshot from the managed browser page',
+      inputSchema: z.object({ path: z.string().min(1).optional() }),
+      outputSchema: browserActionResultSchema
+    },
+    async (params) => toToolResult(await browserTools.screenshot(params))
+  );
+
+  server.registerTool(
+    'test.runJourney',
+    {
+      title: 'Run browser journey',
+      description: 'Run one of the predefined browser journeys',
+      inputSchema: z.object({
+        journeyId: z.enum(['login-and-view-dashboard', 'view-account-details']),
+        user: testUserSchema.optional()
+      }),
+      outputSchema: journeyResultSchema
+    },
+    async (params) => toToolResult(await journeyTools.runJourney(params))
+  );
+
+  for (const resource of resources) {
+    server.registerResource(
+      resource.id,
+      specResourceUri(resource.id),
+      {
+        title: resource.name,
+        description: `Shared Playwright specification: ${resource.name}`,
+        mimeType: resource.mimeType
+      },
+      async (uri) => ({
+        contents: [{ uri: uri.href, mimeType: resource.mimeType, text: resource.content }]
+      })
+    );
+  }
+
+  return server;
 };
 
-bootstrap();
+const createRuntimeServer = (): McpServer => {
+  const controller = new BrowserController();
+  const server = createMcpServer({
+    browserTools: createBrowserTools(controller),
+    journeyTools: createJourneyTools(controller)
+  });
+
+  server.server.onclose = () => {
+    void controller.dispose();
+  };
+
+  return server;
+};
+
+export const startStdioServer = (): void => {
+  const handle = serveStdio(createRuntimeServer, {
+    onerror: (error) => console.error('MCP stdio transport error:', error)
+  });
+  let shuttingDown = false;
+
+  const shutdown = (): void => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    void handle.close().catch((error: unknown) => {
+      console.error('Failed to shut down MCP server:', error);
+      process.exitCode = 1;
+    });
+  };
+
+  process.once('SIGINT', shutdown);
+  process.once('SIGTERM', shutdown);
+  console.error('Playwright Adventures MCP server running on stdio');
+};
+
+const entrypoint = process.argv[1];
+if (entrypoint && import.meta.url === pathToFileURL(entrypoint).href) {
+  startStdioServer();
+}

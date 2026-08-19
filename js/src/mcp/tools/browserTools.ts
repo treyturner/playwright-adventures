@@ -16,6 +16,14 @@ export interface FillParams { selector: string; value: string; }
 export interface GetTextParams { selector: string; }
 export interface ScreenshotParams { path?: string; }
 
+export interface BrowserTools {
+  navigate(params: NavigateParams): Promise<BrowserActionResult>;
+  click(params: ClickParams): Promise<BrowserActionResult>;
+  fill(params: FillParams): Promise<BrowserActionResult>;
+  getText(params: GetTextParams): Promise<BrowserActionResult>;
+  screenshot(params: ScreenshotParams): Promise<BrowserActionResult>;
+}
+
 export class BrowserController {
   private browser?: Browser;
   private page?: Page;
@@ -48,7 +56,7 @@ const ensureDir = (dir: string): void => {
   }
 };
 
-export const createBrowserTools = (controller: BrowserController) => {
+export const createBrowserTools = (controller: BrowserController): BrowserTools => {
   return {
     navigate: async ({ url }: NavigateParams): Promise<BrowserActionResult> => {
       const page = await controller.getPage();

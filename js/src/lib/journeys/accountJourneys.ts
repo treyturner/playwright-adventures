@@ -1,7 +1,7 @@
 import { expect, Page } from '@playwright/test';
-import { HomePage } from '../pages/HomePage';
-import { LoginPage } from '../pages/LoginPage';
-import { TestUser } from '../fixtures/testUsers';
+import { HomePage } from '../pages/HomePage.js';
+import { LoginPage } from '../pages/LoginPage.js';
+import { TestUser } from '../fixtures/testUsers.js';
 
 export interface JourneyResult {
   journeyId: string;
