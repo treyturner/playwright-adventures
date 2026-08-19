@@ -1,5 +1,5 @@
 import { expect, Page } from '@playwright/test';
-import { TestUser } from '../fixtures/testUsers';
+import { TestUser } from '../fixtures/testUsers.js';
 
 export class LoginPage {
   constructor(private readonly page: Page) {}

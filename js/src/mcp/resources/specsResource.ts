@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { McpResource } from '../types';
+import { fileURLToPath } from 'url';
+import { McpResource } from '../types.js';
 
 const SPEC_FILES = [
   { id: 'journeys', filename: 'journeys.yaml', mimeType: 'application/yaml' },
@@ -9,7 +10,7 @@ const SPEC_FILES = [
 ];
 
 export const loadSpecResources = (): McpResource[] => {
-  const repoRoot = path.resolve(__dirname, '../../../..');
+  const repoRoot = findRepoRoot(path.dirname(fileURLToPath(import.meta.url)));
   const specDir = path.join(repoRoot, 'common', 'specs');
 
   return SPEC_FILES.map(({ id, filename, mimeType }) => {
@@ -23,4 +24,20 @@ export const loadSpecResources = (): McpResource[] => {
       content
     } satisfies McpResource;
   });
+};
+
+const findRepoRoot = (startDir: string): string => {
+  let currentDir = startDir;
+
+  while (true) {
+    if (fs.existsSync(path.join(currentDir, 'common', 'specs'))) {
+      return currentDir;
+    }
+
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) {
+      throw new Error(`Unable to locate common/specs from ${startDir}`);
+    }
+    currentDir = parentDir;
+  }
 };

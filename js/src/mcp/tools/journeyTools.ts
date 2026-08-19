@@ -1,7 +1,7 @@
 import { Page } from '@playwright/test';
-import { demoUser, TestUser } from '../../lib/fixtures/testUsers';
-import { journeys, JourneyResult } from '../../lib/journeys/accountJourneys';
-import { BrowserController } from './browserTools';
+import { demoUser, TestUser } from '../../lib/fixtures/testUsers.js';
+import { journeys, JourneyResult } from '../../lib/journeys/accountJourneys.js';
+import { BrowserController } from './browserTools.js';
 
 export interface JourneyToolParams {
   journeyId: string;
@@ -9,6 +9,10 @@ export interface JourneyToolParams {
 }
 
 export interface JourneyToolResult extends JourneyResult {}
+
+export interface JourneyTools {
+  runJourney(params: JourneyToolParams): Promise<JourneyToolResult>;
+}
 
 const resolveJourney = (journeyId: string): ((page: Page, user: TestUser) => Promise<JourneyResult>) => {
   const journey = journeys[journeyId as keyof typeof journeys];
@@ -18,7 +22,7 @@ const resolveJourney = (journeyId: string): ((page: Page, user: TestUser) => Pro
   return journey;
 };
 
-export const createJourneyTools = (controller: BrowserController) => {
+export const createJourneyTools = (controller: BrowserController): JourneyTools => {
   return {
     runJourney: async ({ journeyId, user }: JourneyToolParams): Promise<JourneyToolResult> => {
       const page = await controller.getPage();
