@@ -1,6 +1,8 @@
+import re
+
 from playwright.async_api import Page, expect
 
-from ..config import BASE_URL
+from ..config import get_base_url
 from ..journeys.models import TestUser
 
 
@@ -9,12 +11,14 @@ class LoginPage:
         self.page = page
 
     async def goto(self) -> None:
-        await self.page.goto(f"{BASE_URL}/login")
-        await expect(self.page.get_by_role("heading", level=1, name=r"(?i)sign in|log in")).to_be_visible()
+        await self.page.goto(f"{get_base_url()}/login")
+        await expect(
+            self.page.get_by_role("heading", level=1, name=re.compile(r"sign in|log in", re.IGNORECASE))
+        ).to_be_visible()
 
     async def fill_form(self, user: TestUser) -> None:
-        await self.page.get_by_label(r"(?i)email").fill(user.email)
-        await self.page.get_by_label(r"(?i)password").fill(user.password)
+        await self.page.get_by_label(re.compile("email", re.IGNORECASE)).fill(user.email)
+        await self.page.get_by_label(re.compile("password", re.IGNORECASE)).fill(user.password)
 
     async def submit(self) -> None:
-        await self.page.get_by_role("button", name=r"(?i)sign in|log in").click()
+        await self.page.get_by_role("button", name=re.compile(r"sign in|log in", re.IGNORECASE)).click()

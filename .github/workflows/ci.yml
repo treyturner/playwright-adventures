@@ -38,14 +38,16 @@ jobs:
         run: npm ci
       - name: Build
         run: npm run build
+      - name: Test managed fixture app
+        run: npm run test:fixture
       - name: Test MCP protocol
         run: npm run test:mcp
       - name: Install Chromium and system dependencies
         run: npx playwright install --with-deps chromium
       - name: Test MCP browser security
         run: npm run test:mcp:browser
-      - name: Collect smoke tests
-        run: npm run test:smoke -- --list
+      - name: Test managed smoke journeys
+        run: npm run test:smoke
 
   python:
     name: Python
@@ -55,6 +57,9 @@ jobs:
         working-directory: py
     steps:
       - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .node-version
       - uses: actions/setup-python@v7.0.0
         with:
           python-version-file: .python-version
@@ -79,8 +84,8 @@ jobs:
         run: uv run playwright install --with-deps chromium
       - name: Test MCP browser security
         run: uv run pytest tests/integration
-      - name: Collect smoke tests
-        run: uv run pytest tests/smoke --collect-only
+      - name: Test managed smoke journeys
+        run: uv run pytest tests/smoke
 
   smoke:
     name: Live browser smoke tests
