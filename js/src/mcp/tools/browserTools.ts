@@ -187,8 +187,9 @@ export const createBrowserTools = (controller: BrowserController): BrowserTools 
     screenshot: async ({ path: screenshotPath }: ScreenshotParams): Promise<BrowserActionResult> => {
       const filename = screenshotPath ?? `shot-${Date.now()}.png`;
       controller.resolveScreenshotPath(filename);
+      const screenshotType = filename.toLowerCase().endsWith('.png') ? 'png' : 'jpeg';
       const page = await controller.getPage();
-      const image = await page.screenshot({ fullPage: true });
+      const image = await page.screenshot({ fullPage: true, type: screenshotType });
       await controller.assertDocumentNavigationsAllowed();
       const resolvedPath = await controller.writeScreenshot(filename, image);
       return { success: true, message: 'Screenshot captured', screenshotPath: resolvedPath };

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
+from typing import Literal
 
 from playwright.async_api import Browser, BrowserContext, Frame, Page, Playwright, Route, async_playwright
 
@@ -162,8 +163,9 @@ class BrowserTools:
     async def browser_screenshot(self, path: str | None = None) -> BrowserResult:
         loop = asyncio.get_running_loop()
         resolved_path = self.session.policy.resolve_screenshot_path(path, int(loop.time() * 1000))
+        screenshot_type: Literal["png", "jpeg"] = "png" if resolved_path.suffix.lower() == ".png" else "jpeg"
         page = await self.session.get_page()
-        image = await page.screenshot(full_page=True)
+        image = await page.screenshot(full_page=True, type=screenshot_type)
         await self.session.ensure_document_navigations_allowed()
         resolved_path = await asyncio.to_thread(
             self.session.policy.write_screenshot_file,

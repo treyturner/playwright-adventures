@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import http from 'node:http';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 import type { AddressInfo } from 'node:net';
 import type { BrowserContext } from 'playwright';
 
 import { createBrowserSecurityPolicy } from '../../src/mcp/security.js';
-import { BrowserController } from '../../src/mcp/tools/browserTools.js';
+import { BrowserController, createBrowserTools } from '../../src/mcp/tools/browserTools.js';
 
 const scenarios = [
   {
@@ -35,7 +38,7 @@ const scenarios = [
   }
 ] as const;
 
-test('context-wide navigation enforcement catches networkless documents and closes the context', async (suite) => {
+test('MCP browser security is enforced in Chromium', async (suite) => {
   const server = http.createServer((_request, response) => {
     response.writeHead(200, { 'content-type': 'text/html' });
     response.end('<!doctype html><html><body><h1>Allowed document</h1></body></html>');
@@ -70,6 +73,36 @@ test('context-wide navigation enforcement catches networkless documents and clos
         }
       });
     }
+
+    await suite.test('screenshot bytes match the requested file extension', async () => {
+      const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'playwright-adventures-'));
+      const controller = new BrowserController(
+        createBrowserSecurityPolicy(
+          { BASE_URL: baseURL, MCP_SCREENSHOT_DIR: 'captures' },
+          temporaryDirectory
+        )
+      );
+      const tools = createBrowserTools(controller);
+
+      try {
+        await tools.navigate({ url: baseURL });
+        for (const filename of ['capture.jpg', 'capture.jpeg']) {
+          const jpegResult = await tools.screenshot({ path: filename });
+          assert.ok(jpegResult.screenshotPath);
+          assert.deepEqual([...fs.readFileSync(jpegResult.screenshotPath).subarray(0, 3)], [0xff, 0xd8, 0xff]);
+        }
+
+        const pngResult = await tools.screenshot({ path: 'capture.png' });
+        assert.ok(pngResult.screenshotPath);
+        assert.deepEqual(
+          [...fs.readFileSync(pngResult.screenshotPath).subarray(0, 8)],
+          [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+        );
+      } finally {
+        await controller.dispose();
+        fs.rmSync(temporaryDirectory, { recursive: true, force: true });
+      }
+    });
   } finally {
     await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
   }

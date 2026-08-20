@@ -10,7 +10,7 @@ from typing import cast
 import pytest
 
 from playwright_adventures.mcp_server.security import BrowserSecurityPolicy
-from playwright_adventures.mcp_server.tools.browser_tools import BrowserSession
+from playwright_adventures.mcp_server.tools.browser_tools import BrowserSession, BrowserTools
 
 
 class _DocumentHandler(BaseHTTPRequestHandler):
@@ -97,5 +97,28 @@ async def test_context_navigation_event_catches_networkless_documents_and_closes
                 await session.ensure_document_navigations_allowed()
             assert page.is_closed()
             assert context.pages == []
+        finally:
+            await session.close()
+
+
+async def test_screenshot_bytes_match_the_requested_file_extension(tmp_path: Path) -> None:
+    with _document_server() as base_url:
+        policy = BrowserSecurityPolicy.from_environment(
+            {"BASE_URL": base_url, "MCP_SCREENSHOT_DIR": "captures"},
+            tmp_path,
+        )
+        session = BrowserSession(policy)
+        tools = BrowserTools(session)
+
+        try:
+            await tools.browser_navigate(base_url)
+            jpeg_results = [await tools.browser_screenshot(filename) for filename in ("capture.jpg", "capture.jpeg")]
+            png_result = await tools.browser_screenshot("capture.png")
+
+            for jpeg_result in jpeg_results:
+                assert jpeg_result.screenshot_path is not None
+                assert Path(jpeg_result.screenshot_path).read_bytes().startswith(b"\xff\xd8\xff")
+            assert png_result.screenshot_path is not None
+            assert Path(png_result.screenshot_path).read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
         finally:
             await session.close()
