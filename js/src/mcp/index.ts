@@ -29,10 +29,12 @@ const journeyResultSchema = z.object({
 });
 
 const testUserSchema = z.object({
-  email: z.string().email(),
-  password: z.string(),
-  displayName: z.string().optional()
-});
+  email: z.string().email().max(254),
+  password: z.string().min(1).max(1024),
+  displayName: z.string().max(256).optional()
+}).strict();
+
+const selectorSchema = z.string().trim().min(1).max(4096);
 
 export interface McpServerDependencies {
   browserTools: BrowserTools;
@@ -62,8 +64,8 @@ export const createMcpServer = ({
     'browser.navigate',
     {
       title: 'Navigate browser',
-      description: 'Navigate the managed browser page to a URL',
-      inputSchema: z.object({ url: z.string().min(1) }),
+      description: 'Navigate the managed browser page to an allowed HTTP(S) URL',
+      inputSchema: z.object({ url: z.string().url().max(2048) }).strict(),
       outputSchema: browserActionResultSchema
     },
     async (params) => toToolResult(await browserTools.navigate(params))
@@ -74,7 +76,7 @@ export const createMcpServer = ({
     {
       title: 'Click browser element',
       description: 'Click an element matching a Playwright selector',
-      inputSchema: z.object({ selector: z.string().min(1) }),
+      inputSchema: z.object({ selector: selectorSchema }).strict(),
       outputSchema: browserActionResultSchema
     },
     async (params) => toToolResult(await browserTools.click(params))
@@ -85,7 +87,7 @@ export const createMcpServer = ({
     {
       title: 'Fill browser input',
       description: 'Fill an input matching a Playwright selector',
-      inputSchema: z.object({ selector: z.string().min(1), value: z.string() }),
+      inputSchema: z.object({ selector: selectorSchema, value: z.string().max(100_000) }).strict(),
       outputSchema: browserActionResultSchema
     },
     async (params) => toToolResult(await browserTools.fill(params))
@@ -96,7 +98,7 @@ export const createMcpServer = ({
     {
       title: 'Read browser text',
       description: 'Read text content from an element matching a Playwright selector',
-      inputSchema: z.object({ selector: z.string().min(1) }),
+      inputSchema: z.object({ selector: selectorSchema }).strict(),
       outputSchema: browserActionResultSchema
     },
     async (params) => toToolResult(await browserTools.getText(params))
@@ -106,8 +108,10 @@ export const createMcpServer = ({
     'browser.screenshot',
     {
       title: 'Capture browser screenshot',
-      description: 'Capture a full-page screenshot from the managed browser page',
-      inputSchema: z.object({ path: z.string().min(1).optional() }),
+      description: 'Capture a full-page screenshot inside MCP_SCREENSHOT_DIR',
+      inputSchema: z.object({
+        path: z.string().min(1).max(128).regex(/^[^/\\]+\.(?:png|jpe?g)$/i).optional()
+      }).strict(),
       outputSchema: browserActionResultSchema
     },
     async (params) => toToolResult(await browserTools.screenshot(params))
@@ -121,7 +125,7 @@ export const createMcpServer = ({
       inputSchema: z.object({
         journeyId: z.enum(['login-and-view-dashboard', 'view-account-details']),
         user: testUserSchema.optional()
-      }),
+      }).strict(),
       outputSchema: journeyResultSchema
     },
     async (params) => toToolResult(await journeyTools.runJourney(params))
@@ -149,7 +153,7 @@ const createRuntimeServer = (): McpServer => {
   const controller = new BrowserController();
   const server = createMcpServer({
     browserTools: createBrowserTools(controller),
-    journeyTools: createJourneyTools(controller)
+    journeyTools: createJourneyTools()
   });
 
   server.server.onclose = () => {

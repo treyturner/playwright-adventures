@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test:mcp": "npm run build --silent && node --test dist/tests/mcp/server.test.js",
+    "test:mcp": "npm run build --silent && node --test dist/tests/mcp/*.test.js",
     "test:smoke": "playwright test tests/smoke",
     "start:mcp": "tsx src/mcp/index.ts"
   },

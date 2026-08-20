@@ -1,6 +1,11 @@
-import { chromium, Browser, Page } from 'playwright';
-import fs from 'fs';
-import path from 'path';
+import { chromium, type Browser, type BrowserContext, type Page, type Route } from 'playwright';
+
+import {
+  createBrowserSecurityPolicy,
+  type BrowserSecurityPolicy,
+  resolveScreenshotPath,
+  validateNavigationUrl
+} from '../security.js';
 
 export interface BrowserActionResult {
   success: boolean;
@@ -26,63 +31,105 @@ export interface BrowserTools {
 
 export class BrowserController {
   private browser?: Browser;
+  private context?: BrowserContext;
   private page?: Page;
-  private readonly baseURL: string;
+  private pagePromise?: Promise<Page>;
+  readonly policy: BrowserSecurityPolicy;
 
-  constructor(baseURL: string = process.env.BASE_URL || 'http://localhost:3000') {
-    this.baseURL = baseURL;
+  constructor(policy: BrowserSecurityPolicy = createBrowserSecurityPolicy()) {
+    this.policy = policy;
   }
 
   async getPage(): Promise<Page> {
     if (this.page) return this.page;
+    this.pagePromise ??= this.createPage();
 
+    try {
+      this.page = await this.pagePromise;
+      return this.page;
+    } finally {
+      this.pagePromise = undefined;
+    }
+  }
+
+  validateNavigation(url: string): string {
+    return validateNavigationUrl(url, this.policy.allowedOrigins);
+  }
+
+  resolveScreenshotPath(filename?: string): string {
+    return resolveScreenshotPath(this.policy, filename);
+  }
+
+  private async createPage(): Promise<Page> {
     this.browser = await chromium.launch({ headless: true });
-    const context = await this.browser.newContext({ baseURL: this.baseURL });
-    this.page = await context.newPage();
-    return this.page;
+    this.context = await this.browser.newContext({
+      acceptDownloads: false,
+      baseURL: this.policy.baseURL,
+      serviceWorkers: 'block'
+    });
+    await this.context.route('**/*', (route) => this.guardNavigation(route));
+    const page = await this.context.newPage();
+    return page;
+  }
+
+  private async guardNavigation(route: Route): Promise<void> {
+    const request = route.request();
+    if (request.isNavigationRequest()) {
+      try {
+        validateNavigationUrl(request.url(), this.policy.allowedOrigins);
+      } catch {
+        await route.abort('blockedbyclient');
+        return;
+      }
+    }
+    await route.continue();
   }
 
   async dispose(): Promise<void> {
-    await this.page?.context().close();
+    await this.context?.close();
     await this.browser?.close();
+    this.context = undefined;
     this.page = undefined;
+    this.pagePromise = undefined;
     this.browser = undefined;
   }
 }
 
-const ensureDir = (dir: string): void => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+const requireNonEmpty = (value: string, label: string): void => {
+  if (!value.trim()) {
+    throw new Error(`${label} must not be empty`);
   }
 };
 
 export const createBrowserTools = (controller: BrowserController): BrowserTools => {
   return {
     navigate: async ({ url }: NavigateParams): Promise<BrowserActionResult> => {
+      const validatedUrl = controller.validateNavigation(url);
       const page = await controller.getPage();
-      await page.goto(url);
+      await page.goto(validatedUrl);
       return { success: true, message: 'Navigated', url: page.url() };
     },
     click: async ({ selector }: ClickParams): Promise<BrowserActionResult> => {
+      requireNonEmpty(selector, 'Selector');
       const page = await controller.getPage();
       await page.click(selector);
       return { success: true, message: `Clicked ${selector}`, url: page.url() };
     },
     fill: async ({ selector, value }: FillParams): Promise<BrowserActionResult> => {
+      requireNonEmpty(selector, 'Selector');
       const page = await controller.getPage();
       await page.fill(selector, value);
       return { success: true, message: `Filled ${selector}` };
     },
     getText: async ({ selector }: GetTextParams): Promise<BrowserActionResult> => {
+      requireNonEmpty(selector, 'Selector');
       const page = await controller.getPage();
       const content = await page.textContent(selector);
       return { success: true, message: 'Text retrieved', value: content ?? '' };
     },
     screenshot: async ({ path: screenshotPath }: ScreenshotParams): Promise<BrowserActionResult> => {
+      const resolvedPath = controller.resolveScreenshotPath(screenshotPath);
       const page = await controller.getPage();
-      const outputDir = path.join(process.cwd(), 'screenshots');
-      ensureDir(outputDir);
-      const resolvedPath = screenshotPath || path.join(outputDir, `shot-${Date.now()}.png`);
       await page.screenshot({ path: resolvedPath, fullPage: true });
       return { success: true, message: 'Screenshot captured', screenshotPath: resolvedPath };
     }

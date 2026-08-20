@@ -61,6 +61,24 @@ test('exposes tools and resources through the MCP protocol', async () => {
       url: 'https://example.test'
     });
 
+    const invalidSelector = await client.callTool({
+      name: 'browser.click',
+      arguments: { selector: '   ' }
+    });
+    assert.equal(invalidSelector.isError, true);
+
+    const unexpectedArgument = await client.callTool({
+      name: 'browser.getText',
+      arguments: { selector: '#status', unexpected: true }
+    });
+    assert.equal(unexpectedArgument.isError, true);
+
+    const invalidJourney = await client.callTool({
+      name: 'test.runJourney',
+      arguments: { journeyId: 'unknown-journey' }
+    });
+    assert.equal(invalidJourney.isError, true);
+
     const resources = await client.listResources();
     assert.equal(resources.resources.length, 3);
     assert.ok(resources.resources.some(({ uri }) => uri === specResourceUri('journeys')));

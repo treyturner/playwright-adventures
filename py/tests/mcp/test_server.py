@@ -4,8 +4,10 @@ import sys
 import tempfile
 from pathlib import Path
 
+import pytest
 from mcp import Client
 from mcp.client.stdio import StdioServerParameters, stdio_client
+from mcp.shared.exceptions import MCPError
 from mcp.types import LATEST_PROTOCOL_VERSION, TextResourceContents
 
 from playwright_adventures.journeys.models import JourneyResult
@@ -62,6 +64,24 @@ async def test_exposes_tools_and_resources_through_the_mcp_protocol() -> None:
             "value": None,
             "screenshot_path": None,
         }
+
+        invalid_selector = await client.call_tool("browser.click", {"selector": "   "})
+        assert invalid_selector.is_error is True
+
+        invalid_journey = await client.call_tool("test.runJourney", {"journeyId": "unknown-journey"})
+        assert invalid_journey.is_error is True
+
+        with pytest.raises(MCPError, match="Unknown argument.*unexpected"):
+            await client.call_tool("browser.click", {"selector": "button", "unexpected": True})
+
+        invalid_user = await client.call_tool(
+            "test.runJourney",
+            {
+                "journeyId": "view-account-details",
+                "user": {"email": "test@example.test", "password": "secret", "unexpected": True},
+            },
+        )
+        assert invalid_user.is_error is True
 
         resources = await client.list_resources()
         assert len(resources.resources) == 3

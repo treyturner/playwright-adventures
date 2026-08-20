@@ -41,6 +41,13 @@ uv run python -m playwright_adventures.mcp_server
 
 CI always builds both stacks, runs Python linting and type checks, exercises both MCP protocol suites, and verifies smoke-test discovery. Live browser smoke tests run when the repository variable `BASE_URL` is configured or a `base_url` is supplied to a manual workflow run.
 
+## MCP browser security
+
+- `MCP_ALLOWED_ORIGINS` is an optional comma-separated navigation allowlist containing origins (scheme, host, and optional port). It defaults to the origin of `BASE_URL`; only absolute HTTP(S) URLs without embedded credentials are accepted. Redirects, frames, links, and popups are checked too.
+- `MCP_SCREENSHOT_DIR` selects the screenshot output directory and defaults to `./screenshots`. Tool callers may provide a `.png`, `.jpg`, or `.jpeg` filename, but cannot supply absolute paths, subdirectories, traversal segments, or symbolic-link targets.
+- Direct browser state is scoped to one stdio client. Every predefined journey runs in a fresh browser context that is closed after success or failure.
+- MCP schemas bound URL, selector, form-value, screenshot-filename, user, and journey inputs before tool execution.
+
 ## Notes
 - Both stacks prefer accessible selectors and `data-testid` anchors (see `common/specs/selectors.md`).
 - Journeys mirror `common/specs/journeys.yaml` and can be invoked via MCP (`test.runJourney`).

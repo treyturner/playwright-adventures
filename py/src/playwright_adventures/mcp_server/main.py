@@ -2,14 +2,34 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Awaitable, Callable
-from typing import Protocol
+from typing import Annotated, Literal, Protocol
 
 from mcp.server import MCPServer
+from pydantic import Field
 
 from ..journeys.models import JourneyResult, TestUser
 from .resources.specs_resource import SpecResource, load_spec_resources
 from .tools.browser_tools import BrowserResult, BrowserSession, BrowserTools
 from .tools.journey_tools import JourneyTools
+from .validation import RejectUnknownToolArguments
+
+UrlArgument = Annotated[str, Field(min_length=1, max_length=2048)]
+SelectorArgument = Annotated[str, Field(min_length=1, max_length=4096, pattern=r"\S")]
+FillValueArgument = Annotated[str, Field(max_length=100_000)]
+ScreenshotFilenameArgument = Annotated[
+    str,
+    Field(min_length=1, max_length=128, pattern=r"(?i)^[^/\\]+\.(?:png|jpe?g)$"),
+]
+JourneyIdArgument = Literal["login-and-view-dashboard", "view-account-details"]
+
+TOOL_ARGUMENTS = {
+    "browser.navigate": frozenset({"url"}),
+    "browser.click": frozenset({"selector"}),
+    "browser.fill": frozenset({"selector", "value"}),
+    "browser.getText": frozenset({"selector"}),
+    "browser.screenshot": frozenset({"path"}),
+    "test.runJourney": frozenset({"journeyId", "user"}),
+}
 
 
 class BrowserToolService(Protocol):
@@ -48,15 +68,16 @@ def create_mcp_server(
         name="playwright-adventures-py",
         version="0.1.0",
         description="Typed Playwright browser automation and shared journeys",
+        middleware=[RejectUnknownToolArguments(TOOL_ARGUMENTS)],
     )
 
     @server.tool(
         name="browser.navigate",
         title="Navigate browser",
-        description="Navigate the managed browser page to a URL",
+        description="Navigate the managed browser page to an allowed HTTP(S) URL",
         structured_output=True,
     )
-    async def browser_navigate(url: str) -> BrowserResult:
+    async def browser_navigate(url: UrlArgument) -> BrowserResult:
         return await browser_tools.browser_navigate(url)
 
     @server.tool(
@@ -65,7 +86,7 @@ def create_mcp_server(
         description="Click an element matching a Playwright selector",
         structured_output=True,
     )
-    async def browser_click(selector: str) -> BrowserResult:
+    async def browser_click(selector: SelectorArgument) -> BrowserResult:
         return await browser_tools.browser_click(selector)
 
     @server.tool(
@@ -74,7 +95,7 @@ def create_mcp_server(
         description="Fill an input matching a Playwright selector",
         structured_output=True,
     )
-    async def browser_fill(selector: str, value: str) -> BrowserResult:
+    async def browser_fill(selector: SelectorArgument, value: FillValueArgument) -> BrowserResult:
         return await browser_tools.browser_fill(selector, value)
 
     @server.tool(
@@ -83,16 +104,16 @@ def create_mcp_server(
         description="Read text content from an element matching a Playwright selector",
         structured_output=True,
     )
-    async def browser_get_text(selector: str) -> BrowserResult:
+    async def browser_get_text(selector: SelectorArgument) -> BrowserResult:
         return await browser_tools.browser_get_text(selector)
 
     @server.tool(
         name="browser.screenshot",
         title="Capture browser screenshot",
-        description="Capture a full-page screenshot from the managed browser page",
+        description="Capture a full-page screenshot inside MCP_SCREENSHOT_DIR",
         structured_output=True,
     )
-    async def browser_screenshot(path: str | None = None) -> BrowserResult:
+    async def browser_screenshot(path: ScreenshotFilenameArgument | None = None) -> BrowserResult:
         return await browser_tools.browser_screenshot(path)
 
     @server.tool(
@@ -101,7 +122,7 @@ def create_mcp_server(
         description="Run one of the predefined browser journeys",
         structured_output=True,
     )
-    async def test_run_journey(journeyId: str, user: TestUser | None = None) -> JourneyResult:
+    async def test_run_journey(journeyId: JourneyIdArgument, user: TestUser | None = None) -> JourneyResult:
         return await journey_tools.run_journey(journeyId, user)
 
     for resource in resources if resources is not None else load_spec_resources():
@@ -118,7 +139,7 @@ def create_mcp_server(
 
 async def main() -> None:
     session = BrowserSession()
-    server = create_mcp_server(BrowserTools(session), JourneyTools(session))
+    server = create_mcp_server(BrowserTools(session), JourneyTools())
     print("Playwright Adventures MCP server running on stdio", file=sys.stderr, flush=True)
 
     try:
