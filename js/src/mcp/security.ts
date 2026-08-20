@@ -92,8 +92,14 @@ export const resolveScreenshotPath = (
   fs.mkdirSync(policy.screenshotDir, { recursive: true });
 
   const resolvedPath = path.join(policy.screenshotDir, filename);
-  if (fs.existsSync(resolvedPath) && fs.lstatSync(resolvedPath).isSymbolicLink()) {
-    throw new Error('Screenshot target must not be a symbolic link');
+  try {
+    if (fs.lstatSync(resolvedPath).isSymbolicLink()) {
+      throw new Error('Screenshot target must not be a symbolic link');
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
   }
   return resolvedPath;
 };

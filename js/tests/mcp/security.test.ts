@@ -51,6 +51,10 @@ test('screenshot paths remain confined to the configured directory', () => {
     fs.writeFileSync(outsideTarget, 'outside');
     fs.symlinkSync(outsideTarget, linkedTarget);
     assert.throws(() => resolveScreenshotPath(policy, 'linked.png'), /symbolic link/);
+
+    const danglingLink = path.join(policy.screenshotDir, 'dangling.png');
+    fs.symlinkSync(path.join(temporaryDirectory, 'missing.png'), danglingLink);
+    assert.throws(() => resolveScreenshotPath(policy, 'dangling.png'), /symbolic link/);
   } finally {
     fs.rmSync(temporaryDirectory, { recursive: true, force: true });
   }
