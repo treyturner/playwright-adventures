@@ -30,9 +30,9 @@ class BrowserSession:
         self.policy = policy or BrowserSecurityPolicy.from_environment()
 
     async def get_page(self) -> Page:
-        self.raise_for_document_violation()
+        await self.ensure_document_navigations_allowed()
         async with self._lock:
-            self.raise_for_document_violation()
+            await self.ensure_document_navigations_allowed()
             if self._page:
                 return self._page
 
@@ -48,6 +48,7 @@ class BrowserSession:
             self._page = await self._context.new_page()
             self._bootstrap_page = self._page
             self._context.on("framenavigated", self._guard_document_navigation)
+            self._context.on("page", lambda opened_page: self._guard_document_navigation(opened_page.main_frame))
             return self._page
 
     async def _guard_navigation(self, route: Route) -> None:
@@ -72,38 +73,53 @@ class BrowserSession:
             self._document_violation = self._document_violation or ValueError(
                 f"Document navigation blocked: {frame.url} is not allowed"
             )
-            task = asyncio.create_task(self._close_disallowed_page(frame.page))
-            self._document_guard_tasks.add(task)
-            task.add_done_callback(self._document_guard_tasks.discard)
+            if self._context and not self._document_guard_tasks:
+                task = asyncio.create_task(self._close_context_for_violation(self._context, self._document_violation))
+                self._document_guard_tasks.add(task)
+                task.add_done_callback(self._document_guard_tasks.discard)
 
-    @staticmethod
-    async def _close_disallowed_page(page: Page) -> None:
+    async def _close_context_for_violation(self, context: BrowserContext, violation: ValueError) -> None:
         try:
-            await page.close()
+            await context.close(reason=str(violation))
         except Exception:
-            pass
+            try:
+                if self._browser:
+                    await self._browser.close()
+            except Exception:
+                pass
 
-    def raise_for_document_violation(self) -> None:
-        if self._document_violation:
-            raise self._document_violation
+    async def ensure_document_navigations_allowed(self) -> None:
+        violation = self._document_violation
+        if not violation:
+            return
+
+        if self._document_guard_tasks:
+            await asyncio.gather(*tuple(self._document_guard_tasks))
+        raise violation
 
     async def close(self) -> None:
         async with self._lock:
-            if self._context:
-                await self._context.close()
-            if self._browser:
-                await self._browser.close()
-            if self._playwright:
-                await self._playwright.stop()
-            if self._document_guard_tasks:
-                await asyncio.gather(*self._document_guard_tasks)
-            self._document_guard_tasks.clear()
-            self._context = None
-            self._browser = None
-            self._page = None
-            self._bootstrap_page = None
-            self._playwright = None
-            self._document_violation = None
+            try:
+                if self._document_guard_tasks:
+                    await asyncio.gather(*tuple(self._document_guard_tasks))
+                if self._context:
+                    await self._context.close()
+            finally:
+                try:
+                    if self._browser:
+                        await self._browser.close()
+                finally:
+                    try:
+                        if self._playwright:
+                            await self._playwright.stop()
+                    finally:
+                        self._document_guard_tasks.clear()
+                        self._context = None
+                        self._browser = None
+                        self._page = None
+                        self._bootstrap_page = None
+                        self._playwright = None
+                        self._document_violation = None
 
 
 def _require_non_empty(value: str, label: str) -> None:
@@ -119,34 +135,39 @@ class BrowserTools:
         validated_url = self.session.policy.validate_navigation_url(url)
         page = await self.session.get_page()
         await page.goto(validated_url)
-        self.session.raise_for_document_violation()
+        await self.session.ensure_document_navigations_allowed()
         return BrowserResult(success=True, message="Navigated", url=page.url)
 
     async def browser_click(self, selector: str) -> BrowserResult:
         _require_non_empty(selector, "Selector")
         page = await self.session.get_page()
         await page.click(selector)
-        self.session.raise_for_document_violation()
+        await self.session.ensure_document_navigations_allowed()
         return BrowserResult(success=True, message=f"Clicked {selector}", url=page.url)
 
     async def browser_fill(self, selector: str, value: str) -> BrowserResult:
         _require_non_empty(selector, "Selector")
         page = await self.session.get_page()
         await page.fill(selector, value)
-        self.session.raise_for_document_violation()
+        await self.session.ensure_document_navigations_allowed()
         return BrowserResult(success=True, message=f"Filled {selector}")
 
     async def browser_get_text(self, selector: str) -> BrowserResult:
         _require_non_empty(selector, "Selector")
         page = await self.session.get_page()
         content = await page.text_content(selector)
-        self.session.raise_for_document_violation()
+        await self.session.ensure_document_navigations_allowed()
         return BrowserResult(success=True, message="Text retrieved", value=content or "")
 
     async def browser_screenshot(self, path: str | None = None) -> BrowserResult:
         loop = asyncio.get_running_loop()
         resolved_path = self.session.policy.resolve_screenshot_path(path, int(loop.time() * 1000))
         page = await self.session.get_page()
-        await page.screenshot(path=str(resolved_path), full_page=True)
-        self.session.raise_for_document_violation()
+        image = await page.screenshot(full_page=True)
+        await self.session.ensure_document_navigations_allowed()
+        resolved_path = await asyncio.to_thread(
+            self.session.policy.write_screenshot_file,
+            resolved_path.name,
+            image,
+        )
         return BrowserResult(success=True, message="Screenshot captured", screenshot_path=str(resolved_path))

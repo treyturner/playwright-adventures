@@ -4,7 +4,8 @@ import {
   createBrowserSecurityPolicy,
   type BrowserSecurityPolicy,
   resolveScreenshotPath,
-  validateNavigationUrl
+  validateNavigationUrl,
+  writeScreenshotFile
 } from '../security.js';
 
 export interface BrowserActionResult {
@@ -36,6 +37,7 @@ export class BrowserController {
   private pagePromise?: Promise<Page>;
   private bootstrapPage?: Page;
   private documentViolation?: Error;
+  private contextShutdown?: Promise<void>;
   readonly policy: BrowserSecurityPolicy;
 
   constructor(policy: BrowserSecurityPolicy = createBrowserSecurityPolicy()) {
@@ -43,13 +45,13 @@ export class BrowserController {
   }
 
   async getPage(): Promise<Page> {
-    this.assertDocumentNavigationsAllowed();
+    await this.assertDocumentNavigationsAllowed();
     if (this.page) return this.page;
     this.pagePromise ??= this.createPage();
 
     try {
       this.page = await this.pagePromise;
-      this.assertDocumentNavigationsAllowed();
+      await this.assertDocumentNavigationsAllowed();
       return this.page;
     } finally {
       this.pagePromise = undefined;
@@ -64,10 +66,16 @@ export class BrowserController {
     return resolveScreenshotPath(this.policy, filename);
   }
 
-  assertDocumentNavigationsAllowed(): void {
-    if (this.documentViolation) {
-      throw this.documentViolation;
-    }
+  async writeScreenshot(filename: string, data: Uint8Array): Promise<string> {
+    return writeScreenshotFile(this.policy, filename, data);
+  }
+
+  async assertDocumentNavigationsAllowed(): Promise<void> {
+    const violation = this.documentViolation;
+    if (!violation) return;
+
+    await this.contextShutdown;
+    throw violation;
   }
 
   private async createPage(): Promise<Page> {
@@ -81,6 +89,7 @@ export class BrowserController {
     const page = await this.context.newPage();
     this.bootstrapPage = page;
     this.context.on('framenavigated', (frame) => this.guardDocumentNavigation(frame));
+    this.context.on('page', (openedPage) => this.guardDocumentNavigation(openedPage.mainFrame()));
     return page;
   }
 
@@ -106,20 +115,36 @@ export class BrowserController {
     try {
       validateNavigationUrl(frame.url(), this.policy.allowedOrigins);
     } catch {
-      this.documentViolation ??= new Error(`Document navigation blocked: ${frame.url()} is not allowed`);
-      void frame.page().close().catch(() => undefined);
+      const violation = this.documentViolation ?? new Error(`Document navigation blocked: ${frame.url()} is not allowed`);
+      this.documentViolation = violation;
+      this.contextShutdown ??= this.closeContextForViolation(violation);
+    }
+  }
+
+  private async closeContextForViolation(violation: Error): Promise<void> {
+    try {
+      await this.context?.close({ reason: violation.message });
+    } catch {
+      await this.browser?.close().catch(() => undefined);
     }
   }
 
   async dispose(): Promise<void> {
-    await this.context?.close();
-    await this.browser?.close();
-    this.context = undefined;
-    this.page = undefined;
-    this.pagePromise = undefined;
-    this.bootstrapPage = undefined;
-    this.browser = undefined;
-    this.documentViolation = undefined;
+    try {
+      await (this.contextShutdown ?? this.context?.close());
+    } finally {
+      try {
+        await this.browser?.close();
+      } finally {
+        this.context = undefined;
+        this.page = undefined;
+        this.pagePromise = undefined;
+        this.bootstrapPage = undefined;
+        this.browser = undefined;
+        this.documentViolation = undefined;
+        this.contextShutdown = undefined;
+      }
+    }
   }
 }
 
@@ -135,35 +160,37 @@ export const createBrowserTools = (controller: BrowserController): BrowserTools 
       const validatedUrl = controller.validateNavigation(url);
       const page = await controller.getPage();
       await page.goto(validatedUrl);
-      controller.assertDocumentNavigationsAllowed();
+      await controller.assertDocumentNavigationsAllowed();
       return { success: true, message: 'Navigated', url: page.url() };
     },
     click: async ({ selector }: ClickParams): Promise<BrowserActionResult> => {
       requireNonEmpty(selector, 'Selector');
       const page = await controller.getPage();
       await page.click(selector);
-      controller.assertDocumentNavigationsAllowed();
+      await controller.assertDocumentNavigationsAllowed();
       return { success: true, message: `Clicked ${selector}`, url: page.url() };
     },
     fill: async ({ selector, value }: FillParams): Promise<BrowserActionResult> => {
       requireNonEmpty(selector, 'Selector');
       const page = await controller.getPage();
       await page.fill(selector, value);
-      controller.assertDocumentNavigationsAllowed();
+      await controller.assertDocumentNavigationsAllowed();
       return { success: true, message: `Filled ${selector}` };
     },
     getText: async ({ selector }: GetTextParams): Promise<BrowserActionResult> => {
       requireNonEmpty(selector, 'Selector');
       const page = await controller.getPage();
       const content = await page.textContent(selector);
-      controller.assertDocumentNavigationsAllowed();
+      await controller.assertDocumentNavigationsAllowed();
       return { success: true, message: 'Text retrieved', value: content ?? '' };
     },
     screenshot: async ({ path: screenshotPath }: ScreenshotParams): Promise<BrowserActionResult> => {
-      const resolvedPath = controller.resolveScreenshotPath(screenshotPath);
+      const filename = screenshotPath ?? `shot-${Date.now()}.png`;
+      controller.resolveScreenshotPath(filename);
       const page = await controller.getPage();
-      await page.screenshot({ path: resolvedPath, fullPage: true });
-      controller.assertDocumentNavigationsAllowed();
+      const image = await page.screenshot({ fullPage: true });
+      await controller.assertDocumentNavigationsAllowed();
+      const resolvedPath = await controller.writeScreenshot(filename, image);
       return { success: true, message: 'Screenshot captured', screenshotPath: resolvedPath };
     }
   };

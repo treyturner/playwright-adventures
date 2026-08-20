@@ -43,8 +43,8 @@ CI always builds both stacks, runs Python linting and type checks, exercises bot
 
 ## MCP browser security
 
-- `MCP_ALLOWED_ORIGINS` is an optional comma-separated navigation allowlist containing origins (scheme, host, and optional port). It defaults to the origin of `BASE_URL`; only absolute HTTP(S) URLs without embedded credentials are accepted. Redirects, frames, links, and popups are checked too.
-- `MCP_SCREENSHOT_DIR` selects the screenshot output directory and defaults to `./screenshots`. Tool callers may provide a `.png`, `.jpg`, or `.jpeg` filename, but cannot supply absolute paths, subdirectories, traversal segments, or symbolic-link targets.
+- `MCP_ALLOWED_ORIGINS` is an optional comma-separated document-navigation allowlist containing origins (scheme, host, and optional port). It defaults to the origin of `BASE_URL`; only absolute HTTP(S) URLs without embedded credentials are accepted. Redirects, frames, links, and popups are checked too. This controls document navigation only; it is not a complete network-egress policy for page resources, `fetch`, WebSockets, or other browser traffic.
+- `MCP_SCREENSHOT_DIR` selects the screenshot output directory and defaults to `./screenshots`. Tool callers may provide a `.png`, `.jpg`, or `.jpeg` filename, but cannot supply absolute paths, subdirectories, traversal segments, or existing targets (including symbolic links). Screenshot files are created exclusively and never overwritten.
 - Direct browser state is scoped to one stdio client. Every predefined journey runs in a fresh browser context that is closed after success or failure.
 - MCP schemas bound URL, selector, form-value, screenshot-filename, user, and journey inputs before tool execution.
 

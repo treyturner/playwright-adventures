@@ -89,17 +89,28 @@ export const resolveScreenshotPath = (
 ): string => {
   const filename = requestedFilename ?? `shot-${timestamp}.png`;
   validateScreenshotFilename(filename);
-  fs.mkdirSync(policy.screenshotDir, { recursive: true });
 
-  const resolvedPath = path.join(policy.screenshotDir, filename);
+  return path.join(policy.screenshotDir, filename);
+};
+
+export const writeScreenshotFile = async (
+  policy: BrowserSecurityPolicy,
+  requestedFilename: string,
+  data: Uint8Array
+): Promise<string> => {
+  validateScreenshotFilename(requestedFilename);
+  await fs.promises.mkdir(policy.screenshotDir, { recursive: true });
+  const canonicalDirectory = await fs.promises.realpath(policy.screenshotDir);
+  const target = path.join(canonicalDirectory, requestedFilename);
+
   try {
-    if (fs.lstatSync(resolvedPath).isSymbolicLink()) {
-      throw new Error('Screenshot target must not be a symbolic link');
-    }
+    await fs.promises.writeFile(target, data, { flag: 'wx', mode: 0o600 });
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-      throw error;
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+      throw new Error('Screenshot target already exists');
     }
+    throw error;
   }
-  return resolvedPath;
+
+  return target;
 };

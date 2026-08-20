@@ -8,55 +8,53 @@ import type { Frame } from 'playwright';
 import {
   createBrowserSecurityPolicy,
   resolveScreenshotPath,
-  validateNavigationUrl
+  validateNavigationUrl,
+  writeScreenshotFile
 } from '../../src/mcp/security.js';
 import { BrowserController } from '../../src/mcp/tools/browserTools.js';
 import { withIsolatedBrowserSession, type JourneyBrowserSession } from '../../src/mcp/tools/journeyTools.js';
 
-test('navigation policy allows configured origins and blocks unsafe destinations', () => {
-  const policy = createBrowserSecurityPolicy({
-    BASE_URL: 'https://app.example.test/',
-    MCP_ALLOWED_ORIGINS: 'https://app.example.test, https://login.example.test'
-  });
+interface SecurityFixture {
+  environment: Record<string, string>;
+  allowedNavigations: Array<{ input: string; normalized: string }>;
+  blockedNavigations: string[];
+  validScreenshotFilenames: string[];
+  invalidScreenshotFilenames: string[];
+}
 
-  assert.equal(validateNavigationUrl('https://app.example.test/account', policy.allowedOrigins), 'https://app.example.test/account');
-  assert.equal(validateNavigationUrl('https://login.example.test/start', policy.allowedOrigins), 'https://login.example.test/start');
-  assert.throws(
-    () => validateNavigationUrl('https://outside.example.test', policy.allowedOrigins),
-    /origin .* is not allowed/
-  );
-  assert.throws(() => validateNavigationUrl('file:///etc/passwd', policy.allowedOrigins), /HTTP or HTTPS/);
-  for (const networklessUrl of ['about:blank', 'about:srcdoc', 'blob:https://app.example.test/id']) {
-    assert.throws(() => validateNavigationUrl(networklessUrl, policy.allowedOrigins), /HTTP or HTTPS/);
+const fixture = JSON.parse(
+  fs.readFileSync(new URL('../../../../common/specs/mcp-security.json', import.meta.url), 'utf8')
+) as SecurityFixture;
+
+test('navigation policy allows configured origins and blocks unsafe destinations', () => {
+  const policy = createBrowserSecurityPolicy(fixture.environment);
+
+  for (const { input, normalized } of fixture.allowedNavigations) {
+    assert.equal(validateNavigationUrl(input, policy.allowedOrigins), normalized);
   }
-  assert.throws(() => validateNavigationUrl('https://user:secret@app.example.test', policy.allowedOrigins), /credentials/);
+  for (const input of fixture.blockedNavigations) {
+    assert.throws(() => validateNavigationUrl(input, policy.allowedOrigins));
+  }
   assert.throws(
     () => createBrowserSecurityPolicy({ BASE_URL: 'https://app.example.test', MCP_ALLOWED_ORIGINS: 'https://app.example.test/path' }),
     /scheme, host, and optional port/
   );
 });
 
-test('document navigation guard records and closes a networkless document', async () => {
+test('document navigation guard records a networkless document violation', async () => {
   const controller = new BrowserController(createBrowserSecurityPolicy({ BASE_URL: 'https://app.example.test' }));
-  let closed = false;
   const frame = {
     url: () => 'about:blank',
-    page: () => ({
-      close: async () => {
-        closed = true;
-      }
-    })
+    page: () => ({})
   } as unknown as Frame;
   const guard = controller as unknown as { guardDocumentNavigation(frame: Frame): void };
 
   guard.guardDocumentNavigation(frame);
 
-  assert.throws(() => controller.assertDocumentNavigationsAllowed(), /about:blank/);
-  await Promise.resolve();
-  assert.equal(closed, true);
+  await assert.rejects(controller.assertDocumentNavigationsAllowed(), /about:blank/);
 });
 
-test('screenshot paths remain confined to the configured directory', () => {
+test('screenshot paths remain confined and are created exclusively', async () => {
   const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'playwright-adventures-'));
   const policy = createBrowserSecurityPolicy(
     { BASE_URL: 'https://app.example.test', MCP_SCREENSHOT_DIR: 'captures' },
@@ -64,22 +62,29 @@ test('screenshot paths remain confined to the configured directory', () => {
   );
 
   try {
-    assert.equal(resolveScreenshotPath(policy, 'account.png'), path.join(temporaryDirectory, 'captures', 'account.png'));
+    for (const filename of fixture.validScreenshotFilenames) {
+      assert.equal(resolveScreenshotPath(policy, filename), path.join(temporaryDirectory, 'captures', filename));
+    }
     assert.equal(resolveScreenshotPath(policy, undefined, 1234), path.join(temporaryDirectory, 'captures', 'shot-1234.png'));
-    assert.throws(() => resolveScreenshotPath(policy, '../escape.png'), /must be a filename/);
-    assert.throws(() => resolveScreenshotPath(policy, 'nested/escape.png'), /must be a filename/);
-    assert.throws(() => resolveScreenshotPath(policy, '/tmp/escape.png'), /must be a filename/);
-    assert.throws(() => resolveScreenshotPath(policy, 'capture.txt'), /must end in/);
+    for (const filename of fixture.invalidScreenshotFilenames) {
+      assert.throws(() => resolveScreenshotPath(policy, filename));
+    }
+
+    const firstTarget = await writeScreenshotFile(policy, 'account.png', Buffer.from('image'));
+    assert.equal(firstTarget, path.join(temporaryDirectory, 'captures', 'account.png'));
+    assert.equal(fs.readFileSync(firstTarget, 'utf8'), 'image');
+    await assert.rejects(writeScreenshotFile(policy, 'account.png', Buffer.from('replacement')), /already exists/);
 
     const outsideTarget = path.join(temporaryDirectory, 'outside.png');
     const linkedTarget = path.join(policy.screenshotDir, 'linked.png');
     fs.writeFileSync(outsideTarget, 'outside');
     fs.symlinkSync(outsideTarget, linkedTarget);
-    assert.throws(() => resolveScreenshotPath(policy, 'linked.png'), /symbolic link/);
+    await assert.rejects(writeScreenshotFile(policy, 'linked.png', Buffer.from('replacement')), /already exists/);
+    assert.equal(fs.readFileSync(outsideTarget, 'utf8'), 'outside');
 
     const danglingLink = path.join(policy.screenshotDir, 'dangling.png');
     fs.symlinkSync(path.join(temporaryDirectory, 'missing.png'), danglingLink);
-    assert.throws(() => resolveScreenshotPath(policy, 'dangling.png'), /symbolic link/);
+    await assert.rejects(writeScreenshotFile(policy, 'dangling.png', Buffer.from('image')), /already exists/);
   } finally {
     fs.rmSync(temporaryDirectory, { recursive: true, force: true });
   }

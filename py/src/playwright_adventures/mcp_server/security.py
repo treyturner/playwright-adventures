@@ -93,8 +93,19 @@ class BrowserSecurityPolicy:
         if Path(filename).suffix.lower() not in SUPPORTED_SCREENSHOT_EXTENSIONS:
             raise ValueError("Screenshot filename must end in .png, .jpg, or .jpeg")
 
+        return self.screenshot_dir / filename
+
+    def write_screenshot_file(self, filename: str, data: bytes) -> Path:
+        self.resolve_screenshot_path(filename, 0)
         self.screenshot_dir.mkdir(parents=True, exist_ok=True)
-        resolved_path = self.screenshot_dir / filename
-        if resolved_path.is_symlink():
-            raise ValueError("Screenshot target must not be a symbolic link")
-        return resolved_path
+        canonical_directory = self.screenshot_dir.resolve(strict=True)
+        target = canonical_directory / filename
+
+        try:
+            descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError as error:
+            raise ValueError("Screenshot target already exists") from error
+
+        with os.fdopen(descriptor, "wb") as screenshot_file:
+            screenshot_file.write(data)
+        return target
