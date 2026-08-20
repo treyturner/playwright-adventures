@@ -3,12 +3,14 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import type { Frame } from 'playwright';
 
 import {
   createBrowserSecurityPolicy,
   resolveScreenshotPath,
   validateNavigationUrl
 } from '../../src/mcp/security.js';
+import { BrowserController } from '../../src/mcp/tools/browserTools.js';
 import { withIsolatedBrowserSession, type JourneyBrowserSession } from '../../src/mcp/tools/journeyTools.js';
 
 test('navigation policy allows configured origins and blocks unsafe destinations', () => {
@@ -24,11 +26,34 @@ test('navigation policy allows configured origins and blocks unsafe destinations
     /origin .* is not allowed/
   );
   assert.throws(() => validateNavigationUrl('file:///etc/passwd', policy.allowedOrigins), /HTTP or HTTPS/);
+  for (const networklessUrl of ['about:blank', 'about:srcdoc', 'blob:https://app.example.test/id']) {
+    assert.throws(() => validateNavigationUrl(networklessUrl, policy.allowedOrigins), /HTTP or HTTPS/);
+  }
   assert.throws(() => validateNavigationUrl('https://user:secret@app.example.test', policy.allowedOrigins), /credentials/);
   assert.throws(
     () => createBrowserSecurityPolicy({ BASE_URL: 'https://app.example.test', MCP_ALLOWED_ORIGINS: 'https://app.example.test/path' }),
     /scheme, host, and optional port/
   );
+});
+
+test('document navigation guard records and closes a networkless document', async () => {
+  const controller = new BrowserController(createBrowserSecurityPolicy({ BASE_URL: 'https://app.example.test' }));
+  let closed = false;
+  const frame = {
+    url: () => 'about:blank',
+    page: () => ({
+      close: async () => {
+        closed = true;
+      }
+    })
+  } as unknown as Frame;
+  const guard = controller as unknown as { guardDocumentNavigation(frame: Frame): void };
+
+  guard.guardDocumentNavigation(frame);
+
+  assert.throws(() => controller.assertDocumentNavigationsAllowed(), /about:blank/);
+  await Promise.resolve();
+  assert.equal(closed, true);
 });
 
 test('screenshot paths remain confined to the configured directory', () => {

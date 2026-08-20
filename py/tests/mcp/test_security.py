@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
+from typing import cast
 
 import pytest
-from playwright.async_api import Page
+from playwright.async_api import Frame, Page
 
 from playwright_adventures.mcp_server.security import BrowserSecurityPolicy
+from playwright_adventures.mcp_server.tools.browser_tools import BrowserSession
 from playwright_adventures.mcp_server.tools.journey_tools import JourneyBrowserSession, with_isolated_browser_session
 
 
@@ -24,6 +27,9 @@ def test_navigation_policy_allows_configured_origins_and_blocks_unsafe_destinati
         policy.validate_navigation_url("https://outside.example.test")
     with pytest.raises(ValueError, match=r"absolute HTTP\(S\) URL"):
         policy.validate_navigation_url("file:///etc/passwd")
+    for networkless_url in ("about:blank", "about:srcdoc", "blob:https://app.example.test/id"):
+        with pytest.raises(ValueError, match=r"absolute HTTP\(S\) URL"):
+            policy.validate_navigation_url(networkless_url)
     with pytest.raises(ValueError, match="credentials"):
         policy.validate_navigation_url("https://user:secret@app.example.test")
     with pytest.raises(ValueError, match="scheme, host, and optional port"):
@@ -34,6 +40,30 @@ def test_navigation_policy_allows_configured_origins_and_blocks_unsafe_destinati
             },
             tmp_path,
         )
+
+
+async def test_document_navigation_guard_records_and_closes_a_networkless_document(tmp_path: Path) -> None:
+    policy = BrowserSecurityPolicy.from_environment({"BASE_URL": "https://app.example.test"}, tmp_path)
+    session = BrowserSession(policy)
+
+    class StubPage:
+        closed = False
+
+        async def close(self) -> None:
+            self.closed = True
+
+    class StubFrame:
+        url = "about:blank"
+        page = StubPage()
+
+    frame = StubFrame()
+    session._guard_document_navigation(cast(Frame, frame))
+
+    with pytest.raises(ValueError, match="about:blank"):
+        session.raise_for_document_violation()
+    await asyncio.sleep(0)
+    assert frame.page.closed is True
+    await session.close()
 
 
 def test_screenshot_paths_remain_confined_to_the_configured_directory(tmp_path: Path) -> None:
