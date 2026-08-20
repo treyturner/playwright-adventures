@@ -1,0 +1,29 @@
+# JavaScript / TypeScript
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Playwright
+playwright-report/
+test-results/
+screenshots/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+build/
+
+# Local configuration
+.env
+.env.*
+!.env.example
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/

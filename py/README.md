@@ -1,7 +1,7 @@
 # Python Playwright + MCP Sidecar
 
 ## Setup
-1. Install dependencies with [uv](https://github.com/astral-sh/uv):
+1. Install runtime and development dependencies with [uv](https://github.com/astral-sh/uv):
    ```bash
    uv sync
    ```
@@ -13,7 +13,12 @@
 ## Running tests
 ```bash
 uv run pytest
+uv run mypy src tests
+uv run ruff check .
+uv run ruff format --check .
 ```
+
+For a runtime-only environment, use `uv sync --no-dev`.
 
 The MCP integration tests exercise both an in-memory SDK transport and a real stdio subprocess.
 
