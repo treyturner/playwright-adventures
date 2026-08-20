@@ -1,0 +1,36 @@
+{
+  "environment": {
+    "BASE_URL": "https://app.example.test/",
+    "MCP_ALLOWED_ORIGINS": "https://app.example.test, https://login.example.test"
+  },
+  "allowedNavigations": [
+    {
+      "input": "https://app.example.test/account",
+      "normalized": "https://app.example.test/account"
+    },
+    {
+      "input": "https://login.example.test/start",
+      "normalized": "https://login.example.test/start"
+    }
+  ],
+  "blockedNavigations": [
+    "https://outside.example.test/",
+    "file:///etc/passwd",
+    "about:blank",
+    "about:srcdoc",
+    "blob:https://app.example.test/id",
+    "https://user:secret@app.example.test/"
+  ],
+  "validScreenshotFilenames": [
+    "account.png",
+    "photo.JPG",
+    "archive.jpeg"
+  ],
+  "invalidScreenshotFilenames": [
+    "../escape.png",
+    "nested/escape.png",
+    "/tmp/escape.png",
+    "C:\\temp\\escape.png",
+    "capture.txt"
+  ]
+}
