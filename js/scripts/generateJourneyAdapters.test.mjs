@@ -56,6 +56,25 @@ test('rejects unsupported actions and selectors', () => {
   assert.throws(() => parseJourneyDocument({ version: 1, journeys: [invalid] }));
 });
 
+test('accepts local origin-relative navigation paths', () => {
+  const local = journey('local-path');
+  local.steps = [{ action: 'navigate', path: '/dashboard?tab=accounts#recent' }];
+
+  assert.doesNotThrow(() => parseJourneyDocument({ version: 1, journeys: [local] }));
+});
+
+test('rejects navigation paths that URL parsing could resolve off-origin', () => {
+  for (const path of ['//example.com', '/\\example.com', '/\n/example.com', '/\t/example.com']) {
+    const external = journey('external-path');
+    external.steps = [{ action: 'navigate', path }];
+
+    assert.throws(
+      () => parseJourneyDocument({ version: 1, journeys: [external] }),
+      /must be an origin-relative path/
+    );
+  }
+});
+
 test('rejects legacy raw regular expressions', () => {
   const invalid = journey('raw-pattern');
   invalid.steps = [

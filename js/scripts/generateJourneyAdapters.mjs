@@ -8,6 +8,29 @@ import * as z from 'zod/v4';
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(scriptDirectory, '../..');
+const navigationValidationBaseUrl = new URL('https://journey.invalid/');
+
+const navigationPathSchema = z
+  .string()
+  .min(1)
+  .refine((value) => {
+    if (
+      !value.startsWith('/') ||
+      value.startsWith('//') ||
+      value.includes('\\') ||
+      /[\u0000-\u001f\u007f]/u.test(value)
+    ) {
+      return false;
+    }
+
+    try {
+      return new URL(value, navigationValidationBaseUrl).origin === navigationValidationBaseUrl.origin;
+    } catch {
+      return false;
+    }
+  },
+  'must be an origin-relative path beginning with exactly one slash and containing no backslashes or control characters'
+);
 
 const textMatcherSchema = z.object({
   values: z.array(z.string().min(1)).min(1),
@@ -42,7 +65,7 @@ const selectorSchema = z.discriminatedUnion('by', [
 const stepSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('navigate'),
-    path: z.string().startsWith('/')
+    path: navigationPathSchema
   }).strict(),
   z.object({
     action: z.literal('click'),

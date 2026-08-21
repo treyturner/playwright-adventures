@@ -1,4 +1,5 @@
 import re
+from urllib.parse import urljoin
 
 from playwright.async_api import Locator, Page, expect
 
@@ -40,6 +41,10 @@ def _fixture_value(user: TestUser, value: FixtureValue) -> str:
     return user.display_name
 
 
+def _navigation_url(path: str) -> str:
+    return urljoin(get_base_url(), path)
+
+
 async def execute_journey(
     page: Page,
     user: TestUser,
@@ -58,7 +63,7 @@ async def execute_journey(
 
     for step in spec["steps"]:
         if step["action"] == "navigate":
-            await page.goto(f"{get_base_url()}{step['path']}")
+            await page.goto(_navigation_url(step["path"]))
         elif step["action"] == "click":
             await _locator(page, step["selector"]).click()
         elif step["action"] == "fill":
