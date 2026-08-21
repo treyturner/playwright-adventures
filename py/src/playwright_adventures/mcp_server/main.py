@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Awaitable, Callable
-from typing import Annotated, Literal, Protocol
+from typing import Annotated, Protocol
 
 from mcp.server import MCPServer
 from pydantic import Field
 
+from ..journeys.generated_specs import JourneyId
 from ..journeys.models import JourneyResult, TestUser
 from .resources.specs_resource import SpecResource, load_spec_resources
 from .tools.browser_tools import BrowserResult, BrowserSession, BrowserTools
@@ -20,7 +21,6 @@ ScreenshotFilenameArgument = Annotated[
     str,
     Field(min_length=1, max_length=128, pattern=r"(?i)^[^/\\]+\.(?:png|jpe?g)$"),
 ]
-JourneyIdArgument = Literal["login-and-view-dashboard", "view-account-details"]
 
 TOOL_ARGUMENTS = {
     "browser.navigate": frozenset({"url"}),
@@ -122,7 +122,7 @@ def create_mcp_server(
         description="Run one of the predefined browser journeys",
         structured_output=True,
     )
-    async def test_run_journey(journeyId: JourneyIdArgument, user: TestUser | None = None) -> JourneyResult:
+    async def test_run_journey(journeyId: JourneyId, user: TestUser | None = None) -> JourneyResult:
         return await journey_tools.run_journey(journeyId, user)
 
     for resource in resources if resources is not None else load_spec_resources():

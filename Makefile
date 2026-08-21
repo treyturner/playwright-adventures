@@ -1,10 +1,19 @@
-.PHONY: install-js install-py test-fixture test-js test-mcp-js test-py start-fixture start-mcp-js start-mcp-py test-all
+.PHONY: install-js install-py generate-journeys check-journeys test-journeys test-fixture test-js test-mcp-js test-py start-fixture start-mcp-js start-mcp-py test-all
 
 install-js:
 	cd js && npm install
 
 install-py:
 	cd py && uv sync
+
+generate-journeys:
+	cd js && npm run generate:journeys
+
+check-journeys:
+	cd js && npm run check:journeys
+
+test-journeys:
+	cd js && npm run test:journeys
 
 test-fixture:
 	cd js && npm run test:fixture
@@ -27,4 +36,4 @@ start-mcp-js:
 start-mcp-py:
 	cd py && uv run python -m playwright_adventures.mcp_server
 
-test-all: test-fixture test-mcp-js test-js test-py
+test-all: test-journeys test-fixture test-mcp-js test-js test-py

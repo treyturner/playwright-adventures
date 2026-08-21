@@ -9,6 +9,6 @@ Journeys describe business outcomes that span multiple pages or flows (e.g., log
 - Keep test data explicit and typed so journeys remain deterministic.
 
 ## Separation of Concerns
-- Specs in `common/specs/` capture intent and stable selectors.
-- JS and Python implementations translate specs into executable Playwright journeys.
+- `common/specs/journeys.yaml` captures executable intent, composition, and stable selectors.
+- Generated JS and Python adapters keep both implementations and their MCP journey IDs synchronized with the YAML; hand-written runners translate the shared action vocabulary into Playwright calls.
 - MCP servers expose both the executable tools and the spec resources so clients can reason over the same source of truth.

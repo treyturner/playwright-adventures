@@ -1,7 +1,7 @@
-import { expect, Page } from '@playwright/test';
-import { HomePage } from '../pages/HomePage.js';
-import { LoginPage } from '../pages/LoginPage.js';
+import { Page } from '@playwright/test';
 import { TestUser } from '../fixtures/testUsers.js';
+import { JourneyId, journeyIds, journeySpecs } from './generatedJourneySpecs.js';
+import { executeJourney } from './journeyRunner.js';
 
 export interface JourneyResult {
   journeyId: string;
@@ -9,41 +9,21 @@ export interface JourneyResult {
   details?: string;
 }
 
-export const viewAccountDetailsJourney = async (page: Page, user: TestUser): Promise<JourneyResult> => {
-  const homePage = new HomePage(page);
-  const loginPage = new LoginPage(page);
+export type Journey = (page: Page, user: TestUser) => Promise<JourneyResult>;
 
-  await homePage.goto();
-  await homePage.openLogin();
-
-  await loginPage.fillForm(user);
-  await loginPage.submit();
-
-  await expect(page.getByRole('heading', { level: 1, name: /dashboard/i })).toBeVisible();
-  await page.getByTestId('account-list-item').first().click();
-  await expect(page.getByRole('heading', { level: 1, name: /account details/i })).toBeVisible();
-  await expect(page.getByTestId('transaction-table')).toBeVisible();
-
-  return { journeyId: 'view-account-details', success: true, details: 'Account details rendered' };
+export const runJourney = async (page: Page, user: TestUser, journeyId: JourneyId): Promise<JourneyResult> => {
+  await executeJourney(page, user, journeyId);
+  return { journeyId, success: true, details: journeySpecs[journeyId].successMessage };
 };
 
 export const loginAndViewDashboardJourney = async (page: Page, user: TestUser): Promise<JourneyResult> => {
-  const homePage = new HomePage(page);
-  const loginPage = new LoginPage(page);
-
-  await homePage.goto();
-  await homePage.openLogin();
-
-  await loginPage.fillForm(user);
-  await loginPage.submit();
-
-  await expect(page.getByRole('heading', { level: 1, name: /dashboard/i })).toBeVisible();
-  await expect(page.getByTestId('account-summary')).toBeVisible();
-
-  return { journeyId: 'login-and-view-dashboard', success: true, details: 'Dashboard rendered' };
+  return runJourney(page, user, 'login-and-view-dashboard');
 };
 
-export const journeys = {
-  'view-account-details': viewAccountDetailsJourney,
-  'login-and-view-dashboard': loginAndViewDashboardJourney
+export const viewAccountDetailsJourney = async (page: Page, user: TestUser): Promise<JourneyResult> => {
+  return runJourney(page, user, 'view-account-details');
 };
+
+export const journeys = Object.fromEntries(
+  journeyIds.map((journeyId) => [journeyId, (page: Page, user: TestUser) => runJourney(page, user, journeyId)])
+) as Record<JourneyId, Journey>;

@@ -7,6 +7,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
 import { InMemoryTransport } from '@modelcontextprotocol/server';
 
 import { createMcpServer, specResourceUri } from '../../src/mcp/index.js';
+import { journeyIds } from '../../src/lib/journeys/generatedJourneySpecs.js';
 import type { BrowserTools } from '../../src/mcp/tools/browserTools.js';
 import type { JourneyTools } from '../../src/mcp/tools/journeyTools.js';
 
@@ -49,6 +50,11 @@ test('exposes tools and resources through the MCP protocol', async () => {
         'test.runJourney'
       ]
     );
+    const journeyTool = tools.tools.find(({ name }) => name === 'test.runJourney');
+    const journeyInputSchema = journeyTool?.inputSchema as {
+      properties?: { journeyId?: { enum?: unknown[] } };
+    };
+    assert.deepEqual(journeyInputSchema.properties?.journeyId?.enum, [...journeyIds]);
 
     const navigation = await client.callTool({
       name: 'browser.navigate',
