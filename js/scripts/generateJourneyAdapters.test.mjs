@@ -56,16 +56,32 @@ test('rejects unsupported actions and selectors', () => {
   assert.throws(() => parseJourneyDocument({ version: 1, journeys: [invalid] }));
 });
 
-test('rejects invalid selector regular expressions', () => {
-  const invalid = journey('invalid-pattern');
+test('rejects legacy raw regular expressions', () => {
+  const invalid = journey('raw-pattern');
   invalid.steps = [
     {
       action: 'click',
-      selector: { by: 'label', name: { pattern: '[', ignoreCase: true } }
+      selector: { by: 'label', name: { pattern: '(?<word>foo)', ignoreCase: true } }
     }
   ];
 
-  assert.throws(() => parseJourneyDocument({ version: 1, journeys: [invalid] }), /valid regular expression/);
+  assert.throws(() => parseJourneyDocument({ version: 1, journeys: [invalid] }));
+});
+
+test('accepts regex syntax as literal matcher text', () => {
+  const literal = journey('literal-pattern');
+  literal.steps = [
+    {
+      action: 'click',
+      selector: {
+        by: 'label',
+        name: { values: ['(?<word>foo)'], ignoreCase: false, exact: true }
+      }
+    }
+  ];
+
+  const document = parseJourneyDocument({ version: 1, journeys: [literal] });
+  assert.deepEqual(document.journeys[0].steps[0].selector.name.values, ['(?<word>foo)']);
 });
 
 test('committed adapters match the canonical YAML', async () => {

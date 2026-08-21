@@ -1,9 +1,15 @@
 import { expect, Locator, Page } from '@playwright/test';
 import { TestUser } from '../fixtures/testUsers.js';
 import { isJourneyId, JourneyId, journeySpecs } from './generatedJourneySpecs.js';
-import type { FixtureValue, SelectorSpec, TextPattern } from './journeyTypes.js';
+import type { FixtureValue, SelectorSpec, TextMatcher } from './journeyTypes.js';
 
-const toRegExp = ({ pattern, ignoreCase }: TextPattern): RegExp => new RegExp(pattern, ignoreCase ? 'i' : '');
+const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+export const toTextMatcherRegExp = ({ values, ignoreCase, exact }: TextMatcher): RegExp => {
+  const alternatives = values.map(escapeRegExp).join('|');
+  const pattern = exact ? `^(?:${alternatives})$` : `(?:${alternatives})`;
+  return new RegExp(pattern, ignoreCase ? 'i' : '');
+};
 
 const resolveLocator = (page: Page, selector: SelectorSpec): Locator => {
   let locator: Locator;
@@ -11,14 +17,14 @@ const resolveLocator = (page: Page, selector: SelectorSpec): Locator => {
   switch (selector.by) {
     case 'role': {
       const options = {
-        ...(selector.name === null ? {} : { name: toRegExp(selector.name) }),
+        ...(selector.name === null ? {} : { name: toTextMatcherRegExp(selector.name) }),
         ...(selector.level === null ? {} : { level: selector.level })
       };
       locator = page.getByRole(selector.role, options);
       break;
     }
     case 'label':
-      locator = page.getByLabel(toRegExp(selector.name));
+      locator = page.getByLabel(toTextMatcherRegExp(selector.name));
       break;
     case 'testId':
       locator = page.getByTestId(selector.value);

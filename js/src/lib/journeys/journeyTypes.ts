@@ -1,6 +1,7 @@
-export interface TextPattern {
-  pattern: string;
+export interface TextMatcher {
+  values: readonly string[];
   ignoreCase: boolean;
+  exact: boolean;
 }
 
 interface SelectorBase {
@@ -10,13 +11,13 @@ interface SelectorBase {
 export interface RoleSelector extends SelectorBase {
   by: 'role';
   role: 'button' | 'heading' | 'link';
-  name: TextPattern | null;
+  name: TextMatcher | null;
   level: number | null;
 }
 
 export interface LabelSelector extends SelectorBase {
   by: 'label';
-  name: TextPattern;
+  name: TextMatcher;
 }
 
 export interface TestIdSelector extends SelectorBase {

@@ -11,7 +11,7 @@
     "build": "npm run check:journeys --silent && tsc -p tsconfig.json",
     "check:journeys": "node scripts/generateJourneyAdapters.mjs --check",
     "generate:journeys": "node scripts/generateJourneyAdapters.mjs",
-    "test:journeys": "node --test scripts/generateJourneyAdapters.test.mjs",
+    "test:journeys": "node --test scripts/generateJourneyAdapters.test.mjs && npm run build --silent && node --test dist/tests/journeys/*.test.js",
     "test:fixture": "node --test ../fixture-app/server.test.mjs",
     "test:mcp": "npm run build --silent && node --test dist/tests/mcp/*.test.js",
     "test:mcp:browser": "npm run build --silent && node --test dist/tests/integration/mcpBrowserSecurity.test.js",

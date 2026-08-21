@@ -1,23 +1,24 @@
 from typing import Literal, TypedDict
 
 
-class TextPattern(TypedDict):
-    pattern: str
+class TextMatcher(TypedDict):
+    values: list[str]
     ignoreCase: bool
+    exact: bool
 
 
 class RoleSelector(TypedDict):
     first: bool
     by: Literal["role"]
     role: Literal["button", "heading", "link"]
-    name: TextPattern | None
+    name: TextMatcher | None
     level: int | None
 
 
 class LabelSelector(TypedDict):
     first: bool
     by: Literal["label"]
-    name: TextPattern
+    name: TextMatcher
 
 
 class TestIdSelector(TypedDict):

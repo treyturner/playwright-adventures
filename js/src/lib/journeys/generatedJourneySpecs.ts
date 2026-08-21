@@ -32,8 +32,12 @@ export const journeySpecs: Readonly<Record<JourneyId, JourneySpec>> = {
           "by": "role",
           "role": "link",
           "name": {
-            "pattern": "sign in|log in",
-            "ignoreCase": true
+            "values": [
+              "sign in",
+              "log in"
+            ],
+            "ignoreCase": true,
+            "exact": false
           },
           "level": null
         }
@@ -44,8 +48,11 @@ export const journeySpecs: Readonly<Record<JourneyId, JourneySpec>> = {
           "first": false,
           "by": "label",
           "name": {
-            "pattern": "email",
-            "ignoreCase": true
+            "values": [
+              "email"
+            ],
+            "ignoreCase": true,
+            "exact": false
           }
         },
         "value": "user.email"
@@ -56,8 +63,11 @@ export const journeySpecs: Readonly<Record<JourneyId, JourneySpec>> = {
           "first": false,
           "by": "label",
           "name": {
-            "pattern": "password",
-            "ignoreCase": true
+            "values": [
+              "password"
+            ],
+            "ignoreCase": true,
+            "exact": false
           }
         },
         "value": "user.password"
@@ -69,8 +79,12 @@ export const journeySpecs: Readonly<Record<JourneyId, JourneySpec>> = {
           "by": "role",
           "role": "button",
           "name": {
-            "pattern": "sign in|log in",
-            "ignoreCase": true
+            "values": [
+              "sign in",
+              "log in"
+            ],
+            "ignoreCase": true,
+            "exact": false
           },
           "level": null
         }
@@ -82,8 +96,11 @@ export const journeySpecs: Readonly<Record<JourneyId, JourneySpec>> = {
           "by": "role",
           "role": "heading",
           "name": {
-            "pattern": "dashboard",
-            "ignoreCase": true
+            "values": [
+              "dashboard"
+            ],
+            "ignoreCase": true,
+            "exact": false
           },
           "level": 1
         }
@@ -124,8 +141,11 @@ export const journeySpecs: Readonly<Record<JourneyId, JourneySpec>> = {
           "by": "role",
           "role": "heading",
           "name": {
-            "pattern": "account details",
-            "ignoreCase": true
+            "values": [
+              "account details"
+            ],
+            "ignoreCase": true,
+            "exact": false
           },
           "level": 1
         }

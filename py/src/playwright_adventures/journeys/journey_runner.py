@@ -4,24 +4,26 @@ from playwright.async_api import Locator, Page, expect
 
 from ..config import get_base_url
 from .generated_specs import JOURNEY_SPECS, JourneyId, is_journey_id
-from .journey_types import FixtureValue, SelectorSpec, TextPattern
+from .journey_types import FixtureValue, SelectorSpec, TextMatcher
 from .models import TestUser
 
 
-def _text_pattern(value: TextPattern) -> re.Pattern[str]:
+def _text_matcher(value: TextMatcher) -> re.Pattern[str]:
+    alternatives = "|".join(re.escape(item) for item in value["values"])
+    pattern = f"^(?:{alternatives})$" if value["exact"] else f"(?:{alternatives})"
     flags = re.IGNORECASE if value["ignoreCase"] else 0
-    return re.compile(value["pattern"], flags)
+    return re.compile(pattern, flags)
 
 
 def _locator(page: Page, selector: SelectorSpec) -> Locator:
     if selector["by"] == "role":
-        name = None if selector["name"] is None else _text_pattern(selector["name"])
+        name = None if selector["name"] is None else _text_matcher(selector["name"])
         if selector["level"] is None:
             locator = page.get_by_role(selector["role"], name=name)
         else:
             locator = page.get_by_role(selector["role"], name=name, level=selector["level"])
     elif selector["by"] == "label":
-        locator = page.get_by_label(_text_pattern(selector["name"]))
+        locator = page.get_by_label(_text_matcher(selector["name"]))
     else:
         locator = page.get_by_test_id(selector["value"])
 

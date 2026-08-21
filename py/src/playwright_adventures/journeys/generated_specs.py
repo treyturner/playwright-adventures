@@ -33,8 +33,12 @@ JOURNEY_SPECS: Final[dict[JourneyId, JourneySpec]] = {
                     "by": "role",
                     "role": "link",
                     "name": {
-                        "pattern": "sign in|log in",
+                        "values": [
+                            "sign in",
+                            "log in",
+                        ],
                         "ignoreCase": True,
+                        "exact": False,
                     },
                     "level": None,
                 },
@@ -45,8 +49,11 @@ JOURNEY_SPECS: Final[dict[JourneyId, JourneySpec]] = {
                     "first": False,
                     "by": "label",
                     "name": {
-                        "pattern": "email",
+                        "values": [
+                            "email",
+                        ],
                         "ignoreCase": True,
+                        "exact": False,
                     },
                 },
                 "value": "user.email",
@@ -57,8 +64,11 @@ JOURNEY_SPECS: Final[dict[JourneyId, JourneySpec]] = {
                     "first": False,
                     "by": "label",
                     "name": {
-                        "pattern": "password",
+                        "values": [
+                            "password",
+                        ],
                         "ignoreCase": True,
+                        "exact": False,
                     },
                 },
                 "value": "user.password",
@@ -70,8 +80,12 @@ JOURNEY_SPECS: Final[dict[JourneyId, JourneySpec]] = {
                     "by": "role",
                     "role": "button",
                     "name": {
-                        "pattern": "sign in|log in",
+                        "values": [
+                            "sign in",
+                            "log in",
+                        ],
                         "ignoreCase": True,
+                        "exact": False,
                     },
                     "level": None,
                 },
@@ -83,8 +97,11 @@ JOURNEY_SPECS: Final[dict[JourneyId, JourneySpec]] = {
                     "by": "role",
                     "role": "heading",
                     "name": {
-                        "pattern": "dashboard",
+                        "values": [
+                            "dashboard",
+                        ],
                         "ignoreCase": True,
+                        "exact": False,
                     },
                     "level": 1,
                 },
@@ -125,8 +142,11 @@ JOURNEY_SPECS: Final[dict[JourneyId, JourneySpec]] = {
                     "by": "role",
                     "role": "heading",
                     "name": {
-                        "pattern": "account details",
+                        "values": [
+                            "account details",
+                        ],
                         "ignoreCase": True,
+                        "exact": False,
                     },
                     "level": 1,
                 },

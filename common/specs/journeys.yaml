@@ -15,20 +15,24 @@ journeys:
           by: role
           role: link
           name:
-            pattern: sign in|log in
+            values:
+              - sign in
+              - log in
             ignoreCase: true
       - action: fill
         selector:
           by: label
           name:
-            pattern: email
+            values:
+              - email
             ignoreCase: true
         value: user.email
       - action: fill
         selector:
           by: label
           name:
-            pattern: password
+            values:
+              - password
             ignoreCase: true
         value: user.password
       - action: click
@@ -36,7 +40,9 @@ journeys:
           by: role
           role: button
           name:
-            pattern: sign in|log in
+            values:
+              - sign in
+              - log in
             ignoreCase: true
       - action: assert-visible
         selector:
@@ -44,7 +50,8 @@ journeys:
           role: heading
           level: 1
           name:
-            pattern: dashboard
+            values:
+              - dashboard
             ignoreCase: true
       - action: assert-visible
         selector:
@@ -71,7 +78,8 @@ journeys:
           role: heading
           level: 1
           name:
-            pattern: account details
+            values:
+              - account details
             ignoreCase: true
       - action: assert-visible
         selector:

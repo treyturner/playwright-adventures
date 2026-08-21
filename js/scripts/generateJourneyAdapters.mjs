@@ -9,16 +9,10 @@ import * as z from 'zod/v4';
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(scriptDirectory, '../..');
 
-const textPatternSchema = z.object({
-  pattern: z.string().min(1).refine((value) => {
-    try {
-      new RegExp(value);
-      return true;
-    } catch {
-      return false;
-    }
-  }, 'must be a valid regular expression'),
-  ignoreCase: z.boolean().optional().default(false)
+const textMatcherSchema = z.object({
+  values: z.array(z.string().min(1)).min(1),
+  ignoreCase: z.boolean().optional().default(false),
+  exact: z.boolean().optional().default(false)
 }).strict();
 
 const selectorBaseShape = {
@@ -30,13 +24,13 @@ const selectorSchema = z.discriminatedUnion('by', [
     ...selectorBaseShape,
     by: z.literal('role'),
     role: z.enum(['button', 'heading', 'link']),
-    name: textPatternSchema.optional().nullable().default(null),
+    name: textMatcherSchema.optional().nullable().default(null),
     level: z.number().int().positive().optional().nullable().default(null)
   }).strict(),
   z.object({
     ...selectorBaseShape,
     by: z.literal('label'),
-    name: textPatternSchema
+    name: textMatcherSchema
   }).strict(),
   z.object({
     ...selectorBaseShape,
