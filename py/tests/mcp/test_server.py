@@ -10,6 +10,7 @@ from mcp.client.stdio import StdioServerParameters, stdio_client
 from mcp.shared.exceptions import MCPError
 from mcp.types import LATEST_PROTOCOL_VERSION, TextResourceContents
 
+from playwright_adventures.journeys.generated_specs import JOURNEY_IDS
 from playwright_adventures.journeys.models import JourneyResult
 from playwright_adventures.journeys.models import TestUser as JourneyUser
 from playwright_adventures.mcp_server.main import create_mcp_server, spec_resource_uri
@@ -54,6 +55,8 @@ async def test_exposes_tools_and_resources_through_the_mcp_protocol() -> None:
             "browser.screenshot",
             "test.runJourney",
         ]
+        journey_tool = next(tool for tool in tools.tools if tool.name == "test.runJourney")
+        assert journey_tool.input_schema["properties"]["journeyId"]["enum"] == list(JOURNEY_IDS)
 
         navigation = await client.call_tool("browser.navigate", {"url": "https://example.test"})
         assert navigation.is_error is not True

@@ -1,31 +1,18 @@
-import re
+from playwright.async_api import Page
 
-from playwright.async_api import Page, expect
-
-from ..pages.home_page import HomePage
-from ..pages.login_page import LoginPage
+from .generated_specs import JOURNEY_SPECS, JourneyId
+from .journey_runner import execute_journey
 from .models import JourneyResult, TestUser, demo_user
 
 
+async def run_journey(page: Page, journey_id: JourneyId, user: TestUser = demo_user) -> JourneyResult:
+    await execute_journey(page, user, journey_id)
+    return JourneyResult(journey_id=journey_id, success=True, details=JOURNEY_SPECS[journey_id]["successMessage"])
+
+
 async def login_and_view_dashboard(page: Page, user: TestUser = demo_user) -> JourneyResult:
-    home = HomePage(page)
-    login = LoginPage(page)
-
-    await home.goto()
-    await home.open_login()
-    await login.fill_form(user)
-    await login.submit()
-
-    await expect(page.get_by_role("heading", level=1, name=re.compile("dashboard", re.IGNORECASE))).to_be_visible()
-    await expect(page.get_by_test_id("account-summary")).to_be_visible()
-    return JourneyResult(journey_id="login-and-view-dashboard", success=True, details="Dashboard rendered")
+    return await run_journey(page, "login-and-view-dashboard", user)
 
 
 async def view_account_details(page: Page, user: TestUser = demo_user) -> JourneyResult:
-    await login_and_view_dashboard(page, user)
-    await page.get_by_test_id("account-list-item").first.click()
-    await expect(
-        page.get_by_role("heading", level=1, name=re.compile("account details", re.IGNORECASE))
-    ).to_be_visible()
-    await expect(page.get_by_test_id("transaction-table")).to_be_visible()
-    return JourneyResult(journey_id="view-account-details", success=True, details="Account details rendered")
+    return await run_journey(page, "view-account-details", user)

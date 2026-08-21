@@ -1,6 +1,7 @@
 import { Page } from '@playwright/test';
 import { demoUser, TestUser } from '../../lib/fixtures/testUsers.js';
 import { journeys, JourneyResult } from '../../lib/journeys/accountJourneys.js';
+import { isJourneyId } from '../../lib/journeys/generatedJourneySpecs.js';
 import { BrowserController } from './browserTools.js';
 
 export interface JourneyToolParams {
@@ -22,11 +23,10 @@ export interface JourneyBrowserSession {
 export type JourneyBrowserSessionFactory = () => JourneyBrowserSession;
 
 const resolveJourney = (journeyId: string): ((page: Page, user: TestUser) => Promise<JourneyResult>) => {
-  const journey = journeys[journeyId as keyof typeof journeys];
-  if (!journey) {
+  if (!isJourneyId(journeyId)) {
     throw new Error(`Unknown journey: ${journeyId}`);
   }
-  return journey;
+  return journeys[journeyId];
 };
 
 export const withIsolatedBrowserSession = async <Result>(

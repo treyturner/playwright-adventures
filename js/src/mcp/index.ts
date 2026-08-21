@@ -5,6 +5,7 @@ import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import * as z from 'zod/v4';
 
 import { loadSpecResources } from './resources/specsResource.js';
+import { journeyIds } from '../lib/journeys/generatedJourneySpecs.js';
 import {
   BrowserController,
   createBrowserTools,
@@ -123,7 +124,7 @@ export const createMcpServer = ({
       title: 'Run browser journey',
       description: 'Run one of the predefined browser journeys',
       inputSchema: z.object({
-        journeyId: z.enum(['login-and-view-dashboard', 'view-account-details']),
+        journeyId: z.enum(journeyIds),
         user: testUserSchema.optional()
       }).strict(),
       outputSchema: journeyResultSchema

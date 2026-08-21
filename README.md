@@ -54,6 +54,12 @@ Run it manually at `http://localhost:3000` with `make start-fixture`. The fixtur
 
 CI always builds both stacks, runs Python linting and type checks, exercises both MCP protocol suites, and runs both browser smoke suites against managed fixture instances. An additional live-browser job runs against another compatible application when the repository variable `BASE_URL` is configured or a `base_url` is supplied to a manual workflow run.
 
+## Shared journey adapters
+
+`common/specs/journeys.yaml` is the executable source of truth for journey IDs, composition, ordered actions, selectors, fixture-value references, and success messages. The TypeScript and Python adapters are generated and committed so either stack can run without parsing YAML at runtime.
+
+After editing the YAML, regenerate both adapters from `js/` with `npm run generate:journeys` (or run `make generate-journeys` at the repository root). Do not edit `generatedJourneySpecs.ts` or `generated_specs.py` directly. `npm run build` checks their exact generated content and fails when either file is missing or stale; generator validation also rejects unsupported steps, duplicate IDs, missing parents, and inheritance cycles.
+
 ## MCP browser security
 
 - `MCP_ALLOWED_ORIGINS` is an optional comma-separated document-navigation allowlist containing origins (scheme, host, and optional port). It defaults to the origin of `BASE_URL`; only absolute HTTP(S) URLs without embedded credentials are accepted. Redirects, frames, links, and popups are checked too. This controls document navigation only; it is not a complete network-egress policy for page resources, `fetch`, WebSockets, or other browser traffic.
@@ -63,7 +69,7 @@ CI always builds both stacks, runs Python linting and type checks, exercises bot
 
 ## Notes
 - Both stacks prefer accessible selectors and `data-testid` anchors (see `common/specs/selectors.md`).
-- Journeys mirror `common/specs/journeys.yaml` and can be invoked via MCP (`test.runJourney`).
+- Generated journey adapters and both MCP `test.runJourney` schemas derive from `common/specs/journeys.yaml`.
 - Both MCP servers negotiate the current protocol over stdio, expose browser and journey tools through `tools/list` and `tools/call`, and publish shared specs through `resources/list` and `resources/read`.
 - Shared specs use stable `playwright-adventures://specs/<name>` resource URIs.
 - Configure `BASE_URL` to point at another compatible target app. Browser smoke tests default to the managed fixture; MCP browser tooling defaults to `http://localhost:3000` and can use a manually started fixture there.

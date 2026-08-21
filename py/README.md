@@ -20,6 +20,8 @@ uv run ruff format --check .
 
 The smoke tests start and stop the repository's managed fixture app on an available local port when `BASE_URL` is unset. This requires the repository-pinned Node.js runtime. Set `BASE_URL` to run against another application that implements the shared journey contract.
 
+Journey IDs and steps come from `../common/specs/journeys.yaml`. After changing that file, run `make generate-journeys` from the repository root to refresh the committed Python and TypeScript adapters; the JavaScript build and CI reject stale generated files.
+
 For a runtime-only environment, use `uv sync --no-dev`.
 
 The MCP integration tests exercise both an in-memory SDK transport and a real stdio subprocess.

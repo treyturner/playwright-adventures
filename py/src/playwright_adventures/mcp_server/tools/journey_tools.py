@@ -5,13 +5,8 @@ from typing import Protocol, TypeVar
 
 from playwright.async_api import Page
 
-from ...journeys import JourneyResult, TestUser, demo_user, login_and_view_dashboard, view_account_details
+from ...journeys import JourneyResult, TestUser, demo_user, is_journey_id, run_journey
 from .browser_tools import BrowserSession
-
-JOURNEY_MAP = {
-    "login-and-view-dashboard": login_and_view_dashboard,
-    "view-account-details": view_account_details,
-}
 
 Result = TypeVar("Result")
 
@@ -41,14 +36,13 @@ class JourneyTools:
         self.create_session = create_session
 
     async def run_journey(self, journey_id: str, user: TestUser | None = None) -> JourneyResult:
-        journey = JOURNEY_MAP.get(journey_id)
-        if journey is None:
+        if not is_journey_id(journey_id):
             raise ValueError(f"Unknown journey: {journey_id}")
 
         user_obj = TestUser.model_validate(user) if user is not None else demo_user
 
         async def run(session: JourneyBrowserSession) -> JourneyResult:
             page = await session.get_page()
-            return await journey(page, user_obj)
+            return await run_journey(page, journey_id, user_obj)
 
         return await with_isolated_browser_session(self.create_session, run)
