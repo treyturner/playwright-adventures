@@ -9,6 +9,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "test:fixture": "node --test ../fixture-app/server.test.mjs",
     "test:mcp": "npm run build --silent && node --test dist/tests/mcp/*.test.js",
     "test:mcp:browser": "npm run build --silent && node --test dist/tests/integration/mcpBrowserSecurity.test.js",
     "test:smoke": "playwright test tests/smoke",

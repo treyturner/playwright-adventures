@@ -5,4 +5,8 @@ def normalize_base_url(value: str) -> str:
     return value.rstrip("/")
 
 
-BASE_URL = normalize_base_url(os.getenv("BASE_URL", "http://localhost:3000"))
+def get_base_url() -> str:
+    return normalize_base_url(os.getenv("BASE_URL", "http://localhost:3000"))
+
+
+BASE_URL = get_base_url()
